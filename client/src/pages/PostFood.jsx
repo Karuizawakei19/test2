@@ -1,6 +1,5 @@
 
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 
@@ -19,7 +18,7 @@ function PostFood() {
   const navigate = useNavigate();
 
   // When the page loads, try to get the user's GPS location automatically
-  useState(() => {
+  useEffect(() => {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         // Success
