@@ -7,22 +7,40 @@ import Browse from './pages/Browse';
 import PostFood from './pages/PostFood';
 import ProviderDashboard from './pages/ProviderDashboard';
 
+
+function NavBar() {
+  const role = localStorage.getItem('role');
+  const token = localStorage.getItem('token');
+
+  if (!token) return null; 
+
+  return (
+    <nav style={{
+      background: '#22c55e',
+      padding: '10px 20px',
+      display: 'flex',
+      gap: '20px',
+      alignItems: 'center',
+    }}>
+      <span style={{ color: 'white', fontWeight: 'bold', fontSize: '18px' }}>RescueBite</span>
+      {role === 'receiver' && (
+        <a href="/browse" style={{ color: 'white' }}>Browse Food</a>
+      )}
+      {role === 'provider' && (
+        <>
+          <a href="/dashboard" style={{ color: 'white' }}>Dashboard</a>
+          <a href="/post" style={{ color: 'white' }}>Post Food</a>
+        </>
+      )}
+    </nav>
+  );
+}
+
+
 function App() {
   return (
-    // enables navigation without full page reloads
     <BrowserRouter>
-
-      {/* Temporary nav bar just for test */}
-      
-      <nav style={{ padding: '10px', background: '#f0f0f0' }}>
-        <Link to="/" style={{ marginRight: '10px' }}>Login</Link>
-        <Link to="/register" style={{ marginRight: '10px' }}>Register</Link>
-        <Link to="/browse" style={{ marginRight: '10px' }}>Browse</Link>
-        <Link to="/post" style={{ marginRight: '10px' }}>Post Food</Link>
-        <Link to="/dashboard">Dashboard</Link>
-      </nav>
-
-      {/* Routes — only one page renders at a time based on the URL */}
+      <NavBar />
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/register" element={<Register />} />
@@ -30,9 +48,10 @@ function App() {
         <Route path="/post" element={<PostFood />} />
         <Route path="/dashboard" element={<ProviderDashboard />} />
       </Routes>
-
     </BrowserRouter>
   );
 }
+
+
 
 export default App;

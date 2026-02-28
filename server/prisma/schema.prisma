@@ -39,6 +39,8 @@ model FoodListing {
   expiresAt     DateTime                        // when food expires 
   status        String   @default("available")  // "available", "reserved", "picked_up"
   createdAt     DateTime @default(now())        // when the listing was posted
+  allowFree     Boolean  @default(true)         // can price drop to ₱0?
+  minimumPrice  Float    @default(0)            // floor price when allowFree = false
 
   // Which provider posted this listing
   providerId   String

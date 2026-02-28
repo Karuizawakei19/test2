@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "FoodListing" ADD COLUMN     "allowFree" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "minimumPrice" DOUBLE PRECISION NOT NULL DEFAULT 0;
