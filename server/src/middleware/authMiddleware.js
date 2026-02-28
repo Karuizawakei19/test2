@@ -22,7 +22,7 @@ const verifyToken = async (req, res, next) => {
 
     // Attach the user info to req so the next function can use it
 
-    eq.user = decodedToken;
+    req.user = decodedToken;
 
     
     next();
