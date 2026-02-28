@@ -1,78 +1,199 @@
+// server/src/routes/listings.js
+
 const express = require('express');
 const prisma = require('../db');
 const verifyToken = require('../middleware/authMiddleware');
 const router = express.Router();
 
 // ─────────────────────────────────────────
-// POST /listings
-// Provider posts a new food listing
-// verifyToken runs first
+// HELPER 1: PRICE DECAY — steps every 15 minutes, whole numbers only
 // ─────────────────────────────────────────
-router.post('/', verifyToken, async (req, res) => {
-  
+function calculateCurrentPrice(originalPrice, createdAt, expiresAt, allowFree, minimumPrice) {
+  const now = new Date();
+  const created = new Date(createdAt);
+  const expiry = new Date(expiresAt);
 
-  const { foodName, quantity, originalPrice, expiresAt, address, latitude, longitude } = req.body;
-
-  // Validate all fields are present 
-  if (!foodName || !quantity || !originalPrice || !expiresAt || !address || !latitude || !longitude) {
-    return res.status(400).json({ error: 'All fields are required.' });
+  // Already expired
+  if (now >= expiry) {
+    return allowFree ? 0 : minimumPrice;
   }
 
-  //  Validate the expiry time 
+  const totalMinutes = (expiry - created) / (1000 * 60);
+
+  const elapsedMinutes = (now - created) / (1000 * 60);
+
+
+  const INTERVAL = 15; 
+  const totalSlots = Math.floor(totalMinutes / INTERVAL);  
+  const passedSlots = Math.floor(elapsedMinutes / INTERVAL); 
+
+  if (totalSlots === 0) return originalPrice;
+
+  const floor = allowFree ? 0 : Math.round(minimumPrice);
+  const droppableAmount = originalPrice - floor;
+  const dropPerSlot = droppableAmount / totalSlots;
+
+  const decayed = originalPrice - (passedSlots * dropPerSlot);
+
+  const result = Math.max(floor, Math.round(decayed));
+
+  return result;
+}
+
+// ─────────────────────────────────────────
+// HELPER 2: HAVERSINE DISTANCE
+// ─────────────────────────────────────────
+function getDistanceKm(lat1, lon1, lat2, lon2) {
+  
+}
+
+// ─────────────────────────────────────────
+// GET /listings?lat=14.65&lng=121.07
+// ─────────────────────────────────────────
+router.get('/', async (req, res) => {
+  const receiverLat = parseFloat(req.query.lat);
+  const receiverLng = parseFloat(req.query.lng);
+  const hasLocation = !isNaN(receiverLat) && !isNaN(receiverLng);
+
+  try {
+    const listings = await prisma.foodListing.findMany({
+      where: { status: 'available' },
+      include: { provider: { select: { name: true } } }
+    });
+
+    let processed = listings.map(listing => {
+      const currentPrice = calculateCurrentPrice(
+        listing.originalPrice,
+        listing.createdAt,
+        listing.expiresAt,
+        listing.allowFree,
+        listing.minimumPrice
+      );
+
+      let distanceKm = null;
+      if (hasLocation) {
+        const raw = getDistanceKm(receiverLat, receiverLng, listing.latitude, listing.longitude);
+        distanceKm = Math.round(raw * 10) / 10;
+      }
+
+      return { ...listing, currentPrice, distanceKm };
+    });
+
+    if (hasLocation) {
+      processed = processed.filter(l => l.distanceKm !== null && l.distanceKm <= 10);
+    }
+
+    processed.sort((a, b) => {
+      if (a.distanceKm !== null && b.distanceKm !== null && a.distanceKm !== b.distanceKm) {
+        return a.distanceKm - b.distanceKm;
+      }
+      return new Date(a.expiresAt) - new Date(b.expiresAt);
+    });
+
+    res.json({ listings: processed });
+
+  } catch (error) {
+    console.error('Get listings error:', error.message);
+    res.status(500).json({ error: 'Failed to fetch listings.' });
+  }
+});
+
+// ─────────────────────────────────────────
+// GET /listings/mine
+// ─────────────────────────────────────────
+router.get('/mine', verifyToken, async (req, res) => {
+  try {
+    const provider = await prisma.user.findUnique({
+      where: { firebaseUid: req.user.uid }
+    });
+
+    if (!provider) return res.status(404).json({ error: 'User not found.' });
+
+    const listings = await prisma.foodListing.findMany({
+      where: { providerId: provider.id },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const processed = listings.map(listing => ({
+      ...listing,
+      currentPrice: calculateCurrentPrice(
+        listing.originalPrice,
+        listing.createdAt,
+        listing.expiresAt,
+        listing.allowFree,
+        listing.minimumPrice
+      ),
+    }));
+
+    res.json({ listings: processed });
+
+  } catch (error) {
+    console.error('Get mine error:', error.message);
+    res.status(500).json({ error: 'Failed to fetch your listings.' });
+  }
+});
+
+// ─────────────────────────────────────────
+// POST /listings
+// ─────────────────────────────────────────
+router.post('/', verifyToken, async (req, res) => {
+  const {
+    foodName, quantity, originalPrice,
+    expiresAt, address, latitude, longitude,
+    allowFree, minimumPrice               
+  } = req.body;
+
+
+  if (!foodName || !quantity || !originalPrice || !expiresAt || !address || !latitude || !longitude) {
+    return res.status(400).json({ error: 'All fields are required. Please allow location access to post food.' });
+  }
+
   const now = new Date();
   const expiry = new Date(expiresAt);
 
-  // expiresAt must be a valid date
   if (isNaN(expiry.getTime())) {
     return res.status(400).json({ error: 'Invalid expiry date.' });
   }
 
-  // expiresAt must be in the future
+  
   if (expiry <= now) {
     return res.status(400).json({ error: 'Expiry time must be in the future.' });
   }
 
-  // expiresAt cannot be more than 72 hours from now
-  const maxExpiry = new Date(now.getTime() + 72 * 60 * 60 * 1000); 
-  if (expiry > maxExpiry) {
-    return res.status(400).json({ error: 'Expiry time cannot be more than 72 hours from now.' });
+  
+  const resolvedAllowFree = allowFree === true || allowFree === 'true';
+  const resolvedMinimumPrice = parseFloat(minimumPrice) || 0;
+
+  if (!resolvedAllowFree && resolvedMinimumPrice <= 0) {
+    return res.status(400).json({ error: 'Please set a minimum price greater than ₱0, or allow the food to be free.' });
+  }
+  if (!resolvedAllowFree && resolvedMinimumPrice >= parseFloat(originalPrice)) {
+    return res.status(400).json({ error: 'Minimum price must be lower than the original price.' });
   }
 
-  // Find the provider in db 
   const provider = await prisma.user.findUnique({
     where: { firebaseUid: req.user.uid },
   });
 
-  if (!provider) {
-    return res.status(404).json({ error: 'User not found.' });
-  }
+  if (!provider) return res.status(404).json({ error: 'User not found.' });
+  if (provider.role !== 'provider') return res.status(403).json({ error: 'Only providers can post food listings.' });
 
-  // Only providers can post food
-  if (provider.role !== 'provider') {
-    return res.status(403).json({ error: 'Only providers can post food listings.' });
-  }
-
-  //  Save the listing to the database 
   try {
     const listing = await prisma.foodListing.create({
       data: {
         foodName,
-        quantity: parseInt(quantity),         
-        originalPrice: parseFloat(originalPrice), 
+        quantity: parseInt(quantity),
+        originalPrice: parseFloat(originalPrice),
         expiresAt: expiry,
         address,
         latitude: parseFloat(latitude),
         longitude: parseFloat(longitude),
-        providerId: provider.id, // link to the provider
+        allowFree: resolvedAllowFree,
+        minimumPrice: resolvedAllowFree ? 0 : resolvedMinimumPrice,
+        providerId: provider.id,
       },
     });
-
-    // Return the created listing
-    res.status(201).json({
-      message: 'Food listed successfully!',
-      listing,
-    });
-
+    res.status(201).json({ message: 'Food listed successfully!', listing });
   } catch (error) {
     console.error('Post listing error:', error.message);
     res.status(500).json({ error: 'Failed to save listing.' });
@@ -80,24 +201,67 @@ router.post('/', verifyToken, async (req, res) => {
 });
 
 // ─────────────────────────────────────────
-// GET /listings —  placeholder
+// POST /listings/:id/reserve
 // ─────────────────────────────────────────
-router.get('/', (req, res) => {
-  res.json({ message: 'Get listings — place holder' });
+router.post('/:id/reserve', verifyToken, async (req, res) => {
+  const listingId = req.params.id;
+
+  try {
+    const receiver = await prisma.user.findUnique({ where: { firebaseUid: req.user.uid } });
+    if (!receiver) return res.status(404).json({ error: 'User not found.' });
+    if (receiver.role !== 'receiver') return res.status(403).json({ error: 'Only receivers can reserve food.' });
+
+    const listing = await prisma.foodListing.findUnique({ where: { id: listingId } });
+    if (!listing) return res.status(404).json({ error: 'Listing not found.' });
+    if (listing.status !== 'available') return res.status(400).json({ error: 'This food has already been reserved.' });
+    if (new Date(listing.expiresAt) <= new Date()) return res.status(400).json({ error: 'This food has already expired.' });
+
+    await prisma.$transaction([
+      prisma.foodListing.update({ where: { id: listingId }, data: { status: 'reserved' } }),
+      prisma.reservation.create({ data: { receiverId: receiver.id, listingId, status: 'pending' } }),
+    ]);
+
+    res.json({ message: 'Food reserved successfully! Head to the pickup location.' });
+
+  } catch (error) {
+    console.error('Reserve error:', error.message);
+    res.status(500).json({ error: 'Failed to reserve listing.' });
+  }
 });
 
 // ─────────────────────────────────────────
-// POST /listings/:id/reserve — placeholder
+// PATCH /listings/:id/confirm
 // ─────────────────────────────────────────
-router.post('/:id/reserve', (req, res) => {
-  res.json({ message: 'Reserve — placeholder' });
-});
+router.patch('/:id/confirm', verifyToken, async (req, res) => {
+  const listingId = req.params.id;
 
-// ─────────────────────────────────────────
-// PATCH /listings/:id/confirm — placeholder
-// ─────────────────────────────────────────
-router.patch('/:id/confirm', (req, res) => {
-  res.json({ message: 'Confirm pickup — placeholder' });
+  try {
+    const provider = await prisma.user.findUnique({ where: { firebaseUid: req.user.uid } });
+    if (!provider) return res.status(404).json({ error: 'User not found.' });
+    if (provider.role !== 'provider') return res.status(403).json({ error: 'Only providers can confirm pickups.' });
+
+    const listing = await prisma.foodListing.findUnique({
+      where: { id: listingId },
+      include: { reservations: true },
+    });
+    if (!listing) return res.status(404).json({ error: 'Listing not found.' });
+    if (listing.providerId !== provider.id) return res.status(403).json({ error: 'You can only confirm your own listings.' });
+    if (listing.status !== 'reserved') return res.status(400).json({ error: 'This listing is not in a reserved state.' });
+
+    const reservation = listing.reservations[0];
+    if (!reservation) return res.status(404).json({ error: 'Reservation record not found.' });
+
+    await prisma.$transaction([
+      prisma.foodListing.update({ where: { id: listingId }, data: { status: 'picked_up' } }),
+      prisma.reservation.update({ where: { id: reservation.id }, data: { status: 'confirmed' } }),
+    ]);
+
+    res.json({ message: 'Pickup confirmed! Food has been rescued.' });
+
+  } catch (error) {
+    console.error('Confirm error:', error.message);
+    res.status(500).json({ error: 'Failed to confirm pickup.' });
+  }
 });
 
 module.exports = router;
