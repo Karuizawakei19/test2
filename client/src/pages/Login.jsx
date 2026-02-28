@@ -59,7 +59,7 @@ function Login() {
 
   return (
     <div style={{ padding: '40px', maxWidth: '400px', margin: '0 auto' }}>
-      <h1 style={{ color: '#22c55e' }}>   RescueBite</h1>
+      <h1 style={{ color: '#22c55e' }}>RescueBite</h1>
       <h2>Login</h2>
 
       {error && (
