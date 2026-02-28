@@ -204,17 +204,138 @@ router.post('/', verifyToken, async (req, res) => {
 });
 
 // ─────────────────────────────────────────
-// POST /listings/:id/reserve 
+// POST /listings/:id/reserve
+// Receiver reserves a listing
 // ─────────────────────────────────────────
-router.post('/:id/reserve', (req, res) => {
-  res.json({ message: 'Reserve — test' });
+router.post('/:id/reserve', verifyToken, async (req, res) => {
+  const listingId = req.params.id; // the listing ID from the URL
+
+  try {
+    //  Find the receiver in db
+    const receiver = await prisma.user.findUnique({
+      where: { firebaseUid: req.user.uid },
+    });
+
+    if (!receiver) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    
+    if (receiver.role !== 'receiver') {
+      return res.status(403).json({ error: 'Only receivers can reserve food.' });
+    }
+
+    //  Find the listing 
+    const listing = await prisma.foodListing.findUnique({
+      where: { id: listingId },
+    });
+
+    if (!listing) {
+      return res.status(404).json({ error: 'Listing not found.' });
+    }
+
+    //  Check if it is still available 
+    if (listing.status !== 'available') {
+      return res.status(400).json({ error: 'This food has already been reserved.' });
+    }
+
+    //  Check it hasn't expired 
+    if (new Date(listing.expiresAt) <= new Date()) {
+      return res.status(400).json({ error: 'This food has already expired.' });
+    }
+
+
+    await prisma.$transaction([
+      
+      prisma.foodListing.update({
+        where: { id: listingId },
+        data: { status: 'reserved' },
+      }),
+  
+      prisma.reservation.create({
+        data: {
+          receiverId: receiver.id,
+          listingId: listingId,
+          status: 'pending',
+        },
+      }),
+    ]);
+
+    res.json({ message: 'Food reserved successfully! Head to the pickup location.' });
+
+  } catch (error) {
+    console.error('Reserve error:', error.message);
+    res.status(500).json({ error: 'Failed to reserve listing.' });
+  }
 });
 
 // ─────────────────────────────────────────
-// PATCH /listings/:id/confirm 
+// PATCH /listings/:id/confirm
+// Provider confirms the receiver picked up the food
 // ─────────────────────────────────────────
-router.patch('/:id/confirm', (req, res) => {
-  res.json({ message: 'Confirm pickup — test' });
-});
+router.patch('/:id/confirm', verifyToken, async (req, res) => {
+  const listingId = req.params.id;
 
-module.exports = router;
+  try {
+    // Find the provider 
+    const provider = await prisma.user.findUnique({
+      where: { firebaseUid: req.user.uid },
+    });
+
+    if (!provider) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+
+    if (provider.role !== 'provider') {
+      return res.status(403).json({ error: 'Only providers can confirm pickups.' });
+    }
+
+    //  Find the listing 
+    const listing = await prisma.foodListing.findUnique({
+      where: { id: listingId },
+      // include the reservation 
+      include: { reservations: true },
+    });
+
+    if (!listing) {
+      return res.status(404).json({ error: 'Listing not found.' });
+    }
+
+    // Verify provider
+    if (listing.providerId !== provider.id) {
+      return res.status(403).json({ error: 'You can only confirm your own listings.' });
+    }
+
+    //  Check it is in "reserved" state 
+    if (listing.status !== 'reserved') {
+      return res.status(400).json({ error: 'This listing is not in a reserved state.' });
+    }
+
+    //  Get reservation record 
+    const reservation = listing.reservations[0]; // only one reservation per listing
+    if (!reservation) {
+      return res.status(404).json({ error: 'Reservation record not found.' });
+    }
+
+    //  Update both listing and reservation 
+    await prisma.$transaction([
+
+      prisma.foodListing.update({
+        where: { id: listingId },
+        data: { status: 'picked_up' },
+      }),
+      
+      prisma.reservation.update({
+        where: { id: reservation.id },
+        data: { status: 'confirmed' },
+      }),
+    ]);
+
+    res.json({ message: 'Pickup confirmed! Food has been rescued.' });
+
+  } catch (error) {
+    console.error('Confirm error:', error.message);
+    res.status(500).json({ error: 'Failed to confirm pickup.' });
+  }
+});
