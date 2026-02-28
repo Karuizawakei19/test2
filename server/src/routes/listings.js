@@ -339,3 +339,5 @@ router.patch('/:id/confirm', verifyToken, async (req, res) => {
     res.status(500).json({ error: 'Failed to confirm pickup.' });
   }
 });
+
+module.exports = router;
