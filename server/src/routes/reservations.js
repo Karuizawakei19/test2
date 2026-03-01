@@ -1,11 +1,9 @@
-
-
 const express     = require('express');
 const prisma      = require('../db');
 const verifyToken = require('../middleware/authMiddleware');
 const router      = express.Router();
 
-//  Helper: create a notification 
+// Helper: create a notification
 async function notify(userId, type, message, link = null) {
   await prisma.notification.create({ data: { userId, type, message, link } });
 }
@@ -24,7 +22,9 @@ router.get('/mine', verifyToken, async (req, res) => {
       orderBy: { reservedAt: 'desc' },
       include: {
         listing: {
-          include: { provider: { select: { name: true, email: true, contactNumber: true } } },
+          include: {
+            provider: { select: { id: true, name: true, email: true, contactNumber: true } },
+          },
         },
       },
     });
@@ -51,7 +51,8 @@ router.get('/pending', verifyToken, async (req, res) => {
       },
       orderBy: { reservedAt: 'asc' },
       include: {
-        receiver: { select: { name: true, email: true, contactNumber: true } },
+        // ✅ id is now included so the provider can navigate to /receiver/:id
+        receiver: { select: { id: true, name: true, email: true, contactNumber: true } },
         listing:  true,
       },
     });
@@ -90,12 +91,10 @@ router.patch('/:id/accept', verifyToken, async (req, res) => {
       }),
     ]);
 
-
-    // Notify receiver
     await notify(
       reservation.receiverId,
       'reservation_accepted',
-      ` ${provider.name} accepted your reservation for "${reservation.listing.foodName}"! Head over to pick it up.`,
+      `✅ ${provider.name} accepted your reservation for "${reservation.listing.foodName}"! Head over to pick it up.`,
       `/chat/${reservation.id}`
     );
 
@@ -110,7 +109,6 @@ router.patch('/:id/accept', verifyToken, async (req, res) => {
 // ─────────────────────────────────────────
 router.patch('/:id/decline', verifyToken, async (req, res) => {
   const { providerNote } = req.body;
-
   try {
     const provider = await prisma.user.findUnique({ where: { firebaseUid: req.user.uid } });
     if (!provider)                    return res.status(404).json({ error: 'User not found.' });
@@ -135,13 +133,12 @@ router.patch('/:id/decline', verifyToken, async (req, res) => {
       }),
     ]);
 
-    // Notify receiver
     const noteText = providerNote ? ` Reason: "${providerNote}"` : '';
     await notify(
       reservation.receiverId,
       'reservation_declined',
       `${provider.name} declined your reservation for "${reservation.listing.foodName}".${noteText}`,
-      `/receiver`
+      '/receiver'
     );
 
     res.json({ message: 'Reservation declined.' });
@@ -150,7 +147,7 @@ router.patch('/:id/decline', verifyToken, async (req, res) => {
   }
 });
 
-// ────────────────────────��────────────────
+// ─────────────────────────────────────────
 // PATCH /reservations/:id/cancel  (receiver)
 // ─────────────────────────────────────────
 router.patch('/:id/cancel', verifyToken, async (req, res) => {
@@ -163,8 +160,8 @@ router.patch('/:id/cancel', verifyToken, async (req, res) => {
       where:   { id: req.params.id },
       include: { listing: true },
     });
-    if (!reservation)                            return res.status(404).json({ error: 'Reservation not found.' });
-    if (reservation.receiverId !== receiver.id)  return res.status(403).json({ error: 'This is not your reservation.' });
+    if (!reservation)                           return res.status(404).json({ error: 'Reservation not found.' });
+    if (reservation.receiverId !== receiver.id) return res.status(403).json({ error: 'This is not your reservation.' });
     if (!['pending', 'accepted'].includes(reservation.status)) {
       return res.status(400).json({ error: 'You can only cancel a pending or accepted reservation.' });
     }
@@ -180,12 +177,11 @@ router.patch('/:id/cancel', verifyToken, async (req, res) => {
       }),
     ]);
 
-    // Notify provider
     await notify(
       reservation.listing.providerId,
       'reservation_cancelled',
-      ` ${receiver.name} cancelled their reservation for "${reservation.listing.foodName}". The listing is available again.`,
-      `/dashboard`
+      `${receiver.name} cancelled their reservation for "${reservation.listing.foodName}". The listing is available again.`,
+      '/dashboard'
     );
 
     res.json({ message: 'Reservation cancelled.' });

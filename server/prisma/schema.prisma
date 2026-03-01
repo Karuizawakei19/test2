@@ -70,6 +70,11 @@ model Reservation {
   messages   Message[] 
 
   rating  Rating?   
+
+  providerConfirmed  Boolean   @default(false)
+  receiverConfirmed  Boolean   @default(false)
+  providerConfirmedAt DateTime?
+  receiverConfirmedAt DateTime?
 }
 
 // ─────────────────────────────────────────

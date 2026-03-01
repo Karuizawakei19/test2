@@ -6,18 +6,14 @@ import api from '../api';
 // ── Status badge ──
 function StatusBadge({ status }) {
   const map = {
-    available: { bg: '#dcfce7', color: '#166534',  label: '🟢 Available' },
-    reserved:  { bg: '#fef9c3', color: '#854d0e',  label: '⏳ Pending Acceptance' },
-    accepted:  { bg: '#dbeafe', color: '#1e40af',  label: '✅ Accepted — Awaiting Pickup' },
-    picked_up: { bg: '#f1f5f9', color: '#475569',  label: '📦 Picked Up' },
+    available: { bg: '#dcfce7', color: '#166534', label: '🟢 Available' },
+    reserved:  { bg: '#fef9c3', color: '#854d0e', label: '⏳ Pending Acceptance' },
+    accepted:  { bg: '#dbeafe', color: '#1e40af', label: '✅ Accepted — Awaiting Pickup' },
+    picked_up: { bg: '#f1f5f9', color: '#475569', label: '📦 Picked Up' },
   };
   const s = map[status] || { bg: '#f1f5f9', color: '#475569', label: status };
   return (
-    <span style={{
-      padding: '3px 10px', borderRadius: '20px',
-      fontSize: '12px', fontWeight: '600',
-      background: s.bg, color: s.color,
-    }}>
+    <span style={{ padding: '3px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', background: s.bg, color: s.color }}>
       {s.label}
     </span>
   );
@@ -26,11 +22,11 @@ function StatusBadge({ status }) {
 function getTimeLabel(expiresAt) {
   const msLeft = new Date(expiresAt) - new Date();
   if (msLeft <= 0) return 'Expired';
-  const hoursLeft = Math.floor(msLeft / (1000 * 60 * 60));
-  const minsLeft  = Math.floor((msLeft % (1000 * 60 * 60)) / (1000 * 60));
-  if (hoursLeft === 0) return `${minsLeft}m left`;
-  if (hoursLeft < 3)   return `${hoursLeft}h ${minsLeft}m left`;
-  return `${hoursLeft}h ${minsLeft}m left`;
+  const h = Math.floor(msLeft / 3600000);
+  const m = Math.floor((msLeft % 3600000) / 60000);
+  if (h === 0) return `${m}m left`;
+  if (h < 3)   return `${h}h ${m}m left`;
+  return         `${h}h ${m}m left`;
 }
 
 function ProviderDashboard() {
@@ -70,6 +66,7 @@ function ProviderDashboard() {
       await api.patch(`/reservations/${reservationId}/accept`, {}, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      showToast('Reservation accepted!', 'success');
       await fetchAll();
     } catch (err) {
       showToast(err.response?.data?.error || 'Failed to accept.', 'error');
@@ -160,14 +157,58 @@ function ProviderDashboard() {
                   <StatusBadge status="reserved" />
                 </div>
 
-                {/* Receiver info card */}
+                {/* ── Receiver info card ── */}
                 <div style={{ background: '#fffbeb', borderRadius: '8px', padding: '12px', marginBottom: '12px', border: '1px solid #fde68a' }}>
-                  <p style={{ margin: 0, fontSize: '14px', fontWeight: '600', color: '#1e293b' }}>
-                    👤 {r.receiver.name}
-                  </p>
-                  <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#64748b' }}>
+
+                  {/* Name row — name is a clickable link */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                    <p style={{ margin: 0, fontSize: '14px', fontWeight: '600', color: '#1e293b' }}>
+                      👤{' '}
+                      <span
+                        onClick={() => navigate(`/receiver/${r.receiver.id}`)}
+                        style={{
+                          color: '#3b82f6',
+                          cursor: 'pointer',
+                          textDecoration: 'underline',
+                          textUnderlineOffset: '2px',
+                        }}
+                      >
+                        {r.receiver.name}
+                      </span>
+                    </p>
+
+                    {/* View Profile button */}
+                    <button
+                      onClick={() => navigate(`/receiver/${r.receiver.id}`)}
+                      style={{
+                        padding: '4px 12px',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        background: 'white',
+                        color: '#3b82f6',
+                        border: '1px solid #93c5fd',
+                        borderRadius: '20px',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      View Profile →
+                    </button>
+                  </div>
+
+                  <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>
                     {r.receiver.email}
                   </p>
+
+                  {r.receiver.contactNumber && (
+                    <a
+                      href={`tel:${r.receiver.contactNumber}`}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '4px', fontSize: '13px', color: '#22c55e', fontWeight: '600', textDecoration: 'none' }}
+                    >
+                      📞 {r.receiver.contactNumber}
+                    </a>
+                  )}
+
                   {r.receiverNote && (
                     <p style={{ margin: '8px 0 0', fontSize: '13px', color: '#475569', fontStyle: 'italic', borderTop: '1px solid #fde68a', paddingTop: '8px' }}>
                       💬 "{r.receiverNote}"
@@ -175,7 +216,7 @@ function ProviderDashboard() {
                   )}
                 </div>
 
-                {/* Decline reason input — shown only when this card's decline is open */}
+                {/* Decline reason input */}
                 {declineId === r.id && (
                   <div style={{ marginBottom: '12px' }}>
                     <label style={{ fontSize: '13px', color: '#374151', fontWeight: '500' }}>
@@ -234,7 +275,6 @@ function ProviderDashboard() {
 
         {/* ══════════════════════════════════════
             SECTION 2 — ACCEPTED: waiting for pickup
-            ↑ THIS IS WHERE THE OPEN CHAT BUTTON IS
         ══════════════════════════════════════ */}
         {acceptedRes.length > 0 && (
           <section style={{ marginBottom: '32px' }}>
@@ -255,12 +295,60 @@ function ProviderDashboard() {
                   <StatusBadge status="accepted" />
                 </div>
 
-                {/* Receiver info */}
+                {/* ── Receiver info card ── */}
                 <div style={{ background: '#eff6ff', borderRadius: '8px', padding: '12px', marginBottom: '14px', border: '1px solid #bfdbfe' }}>
-                  <p style={{ margin: 0, fontSize: '14px', fontWeight: '600', color: '#1e293b' }}>
-                    👤 {r.receiver.name} is on the way
+
+                  {/* Name row — name is a clickable link */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                    <p style={{ margin: 0, fontSize: '14px', fontWeight: '600', color: '#1e293b' }}>
+                      👤{' '}
+                      <span
+                        onClick={() => navigate(`/receiver/${r.receiver.id}`)}
+                        style={{
+                          color: '#3b82f6',
+                          cursor: 'pointer',
+                          textDecoration: 'underline',
+                          textUnderlineOffset: '2px',
+                        }}
+                      >
+                        {r.receiver.name}
+                      </span>
+                      {' '}
+                      <span style={{ fontWeight: '400', color: '#64748b', fontSize: '13px' }}>is on the way</span>
+                    </p>
+
+                    {/* View Profile button */}
+                    <button
+                      onClick={() => navigate(`/receiver/${r.receiver.id}`)}
+                      style={{
+                        padding: '4px 12px',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        background: 'white',
+                        color: '#3b82f6',
+                        border: '1px solid #93c5fd',
+                        borderRadius: '20px',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      View Profile →
+                    </button>
+                  </div>
+
+                  <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>
+                    {r.receiver.email}
                   </p>
-                  <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#64748b' }}>{r.receiver.email}</p>
+
+                  {r.receiver.contactNumber && (
+                    <a
+                      href={`tel:${r.receiver.contactNumber}`}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '4px', fontSize: '13px', color: '#22c55e', fontWeight: '600', textDecoration: 'none' }}
+                    >
+                      📞 {r.receiver.contactNumber}
+                    </a>
+                  )}
+
                   {r.receiverNote && (
                     <p style={{ margin: '8px 0 0', fontSize: '13px', color: '#475569', fontStyle: 'italic', borderTop: '1px solid #bfdbfe', paddingTop: '8px' }}>
                       💬 "{r.receiverNote}"
@@ -268,21 +356,10 @@ function ProviderDashboard() {
                   )}
                 </div>
 
-                {/* ── OPEN CHAT BUTTON ── */}
+                {/* Open Chat button */}
                 <button
                   onClick={() => navigate(`/chat/${r.id}`)}
-                  style={{
-                    width: '100%',
-                    padding: '11px',
-                    background: '#3b82f6',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    fontWeight: '600',
-                    fontSize: '14px',
-                    marginBottom: '10px',
-                  }}
+                  style={{ width: '100%', padding: '11px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '14px', marginBottom: '10px' }}
                 >
                   💬 Open Chat with {r.receiver.name}
                 </button>

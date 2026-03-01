@@ -324,7 +324,8 @@ router.post('/:id/reserve', verifyToken, async (req, res) => {
 
 // ─────────────────────────────────────────
 // PATCH /listings/:id/confirm
-// ─────────────────────────────────────────
+// ───
+/*──────────────────────────────────────
 router.patch('/:id/confirm', verifyToken, async (req, res) => {
   const listingId = req.params.id;
 
@@ -356,5 +357,5 @@ router.patch('/:id/confirm', verifyToken, async (req, res) => {
     res.status(500).json({ error: 'Failed to confirm pickup.' });
   }
 });
-
+*/
 module.exports = router;
