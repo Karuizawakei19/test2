@@ -37,6 +37,7 @@ app.use('/messages',      require('./routes/messages'));
 
 app.use('/ratings',   require('./routes/ratings'));
 app.use('/providers', require('./routes/providers'));
+app.use('/receivers', require('./routes/receivers'));
 
 // Start the server on the port from .env (3001)
 const PORT = process.env.PORT || 3001;
