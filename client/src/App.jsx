@@ -9,6 +9,7 @@ import ReceiverDashboard  from './pages/ReceiverDashboard';
 import NotificationBell from './components/NotificationBell';
 import ChatPage from './pages/ChatPage';
 import MapPage from './pages/MapPage';
+import ProviderProfile from './pages/ProviderProfile';
 
 
 const NO_NAV_PAGES = ['/', '/register'];
@@ -71,6 +72,7 @@ function App() {
         <Route path="/receiver"    element={<ReceiverDashboard />} />
         <Route path="/chat/:reservationId" element={<ChatPage />} /> 
         <Route path="/map" element={<MapPage />} />
+        <Route path="/provider/:providerId" element={<ProviderProfile />} />
       </Routes>
     </BrowserRouter>
   );

@@ -78,27 +78,50 @@ router.get('/', async (req, res) => {
   const hasLocation = !isNaN(receiverLat) && !isNaN(receiverLng);
 
   try {
-    const listings = await prisma.foodListing.findMany({
-      where: { status: 'available' },
-      include: { provider: { select: { name: true } } }
-    });
+          const listings = await prisma.foodListing.findMany({
+        where: { status: 'available' },
+        include: {
+          provider: {
+            select: {
+              id:   true,
+              name: true,
+              ratingsReceived: {
+                select: { score: true },
+              },
+            },
+          },
+        },
+      });
 
-    let processed = listings.map(listing => {
-      const currentPrice = calculateCurrentPrice(
-        listing.originalPrice,
-        listing.createdAt,
-        listing.expiresAt,
-        listing.allowFree,
-        listing.minimumPrice
-      );
+let processed = listings.map(listing => {
+  const currentPrice = calculateCurrentPrice(
+    listing.originalPrice, listing.createdAt,
+    listing.expiresAt, listing.allowFree, listing.minimumPrice
+  );
 
-      let distanceKm = null;
-      if (hasLocation) {
-        const raw = getDistanceKm(receiverLat, receiverLng, listing.latitude, listing.longitude);
-        distanceKm = Math.round(raw * 10) / 10;
-      }
+  let distanceKm = null;
+  if (hasLocation) {
+    const raw = getDistanceKm(receiverLat, receiverLng, listing.latitude, listing.longitude);
+    distanceKm = Math.round(raw * 10) / 10;
+  }
 
-      return { ...listing, currentPrice, distanceKm };
+  // Compute provider avg rating 
+      const ratingScores = listing.provider?.ratingsReceived || [];
+      const avgRating = ratingScores.length
+        ? Math.round((ratingScores.reduce((s, r) => s + r.score, 0) / ratingScores.length) * 10) / 10
+        : null;
+
+      return {
+        ...listing,
+        currentPrice,
+        distanceKm,
+        provider: {
+          id:        listing.provider?.id,
+          name:      listing.provider?.name,
+          avgRating,
+          totalRatings: ratingScores.length,
+        },
+      };
     });
 
     if (hasLocation) {

@@ -210,9 +210,26 @@ function FoodDetail() {
         <h2 style={{ margin: 0, fontSize: '22px', color: '#1e293b' }}>
           {listing.foodName}
         </h2>
-        <span style={{ fontSize: '13px', color: '#94a3b8', marginTop: '4px' }}>
-          by {listing.provider?.name}
+        <p style={{ margin: '4px 0', fontSize: '14px', color: '#64748b' }}>
+        by{' '}
+        <span
+            onClick={() => navigate(`/provider/${listing.provider?.id}`)}
+            style={{
+            color: '#22c55e',
+            fontWeight: '600',
+            cursor: 'pointer',
+            textDecoration: 'underline',
+            textUnderlineOffset: '2px',
+            }}
+        >
+            {listing.provider?.name}
         </span>
+        {listing.provider?.avgRating && (
+            <span style={{ marginLeft: '8px', fontSize: '13px', color: '#f59e0b', fontWeight: '600' }}>
+            ★ {listing.provider.avgRating}
+            </span>
+        )}
+        </p>
       </div>
 
       {/* Category badge */}
