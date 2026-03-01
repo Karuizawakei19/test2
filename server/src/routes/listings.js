@@ -6,14 +6,14 @@ const verifyToken = require('../middleware/authMiddleware');
 const router = express.Router();
 
 // ─────────────────────────────────────────
-// HELPER 1: PRICE DECAY — steps every 15 minutes, whole numbers only
+// PRICE DECAY 
 // ─────────────────────────────────────────
 function calculateCurrentPrice(originalPrice, createdAt, expiresAt, allowFree, minimumPrice) {
   const now = new Date();
   const created = new Date(createdAt);
   const expiry = new Date(expiresAt);
 
-  // Already expired
+  
   if (now >= expiry) {
     return allowFree ? 0 : minimumPrice;
   }
@@ -41,12 +41,12 @@ function calculateCurrentPrice(originalPrice, createdAt, expiresAt, allowFree, m
 }
 
 // ─────────────────────────────────────────
-// HELPER 2: HAVERSINE DISTANCE
+//  HAVERSINE DISTANCE
 // ─────────────────────────────────────────
 function getDistanceKm(lat1, lon1, lat2, lon2) {
-    const R = 6371; // Earth's radius in kilometers
+    const R = 6371; 
 
-  // Convert degrees to radians
+  
   const toRad = (deg) => deg * (Math.PI / 180);
 
   const φ1 = toRad(lat1);
@@ -105,7 +105,7 @@ let processed = listings.map(listing => {
     distanceKm = Math.round(raw * 10) / 10;
   }
 
-  // Compute provider avg rating 
+  
       const ratingScores = listing.provider?.ratingsReceived || [];
       const avgRating = ratingScores.length
         ? Math.round((ratingScores.reduce((s, r) => s + r.score, 0) / ratingScores.length) * 10) / 10
@@ -179,7 +179,7 @@ router.get('/mine', verifyToken, async (req, res) => {
 });
 
 // ─────────────────────────────────────────
-// GET /listings/:id  — single listing (any status)
+// GET /listings/:id  
 // ─────────────────────────────────────────
 router.get('/:id', async (req, res) => {
   const { lat, lng } = req.query;
@@ -379,7 +379,7 @@ router.post('/:id/reserve', verifyToken, async (req, res) => {
     res.status(500).json({ error: 'Failed to reserve listing.' });
   }
 
-  // Notify provider of new reservation
+  
 
 });
 

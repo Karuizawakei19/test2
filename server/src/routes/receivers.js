@@ -32,7 +32,7 @@ router.get('/:id', verifyToken, async (req, res) => {
       where: { receiverId: receiver.id, status: 'declined' },
     });
 
-    // Recent confirmed pickups (last 10) — public facing
+    
     const recentPickups = await prisma.reservation.findMany({
       where:   { receiverId: receiver.id, status: 'confirmed' },
       orderBy: { reservedAt: 'desc' },
@@ -50,7 +50,7 @@ router.get('/:id', verifyToken, async (req, res) => {
       },
     });
 
-    // Ratings they have given (to show how active they are as a reviewer)
+    // Ratings 
     const ratingsGiven = await prisma.rating.count({
       where: { raterId: receiver.id },
     });

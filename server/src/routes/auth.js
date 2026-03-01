@@ -19,7 +19,7 @@ router.post('/register', async (req, res) => {
     return res.status(400).json({ error: 'Password must be at least 6 characters.' });
   }
 
-  // Basic PH number validation (optional field)
+  // Basic PH number validation 
   if (contactNumber && !/^(09|\+639)\d{9}$/.test(contactNumber.replace(/\s/g, ''))) {
     return res.status(400).json({ error: 'Please enter a valid Philippine mobile number (e.g. 09171234567).' });
   }
@@ -33,7 +33,7 @@ router.post('/register', async (req, res) => {
         name,
         role,
         firebaseUid:   firebaseUser.uid,
-        contactNumber: contactNumber?.trim() || null,   // ← save it
+        contactNumber: contactNumber?.trim() || null,   
       },
     });
 

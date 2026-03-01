@@ -80,7 +80,6 @@ model Reservation {
 
 // ─────────────────────────────────────────
 // NOTIFICATION TABLE
-// In-app bell notifications for both roles
 // ─────────────────────────────────────────
 model Notification {
   id        String   @id @default(uuid())
@@ -116,7 +115,6 @@ model Message {
 
 // ─────────────────────────────────────────
 // RATING TABLE
-// Receiver rates provider after confirmed pickup
 // ─────────────────────────────────────────
 model Rating {
   id        String   @id @default(uuid())

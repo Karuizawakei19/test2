@@ -3,7 +3,7 @@ const prisma      = require('../db');
 const verifyToken = require('../middleware/authMiddleware');
 const router      = express.Router();
 
-// Helper: create a notification
+// create a notification
 async function notify(userId, type, message, link = null) {
   await prisma.notification.create({ data: { userId, type, message, link } });
 }
@@ -51,7 +51,7 @@ router.get('/pending', verifyToken, async (req, res) => {
       },
       orderBy: { reservedAt: 'asc' },
       include: {
-        // ✅ id is now included so the provider can navigate to /receiver/:id
+        
         receiver: { select: { id: true, name: true, email: true, contactNumber: true } },
         listing:  true,
       },

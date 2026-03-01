@@ -1,7 +1,4 @@
 
-// Runs every 5 minutes.
-// Any reservation that is still 'accepted' but the listing expired > 2 hours ago
-// is auto-cancelled as a no-show. The listing is re-listed as 'available'.
 
 const cron  = require('node-cron');
 const prisma = require('../db');
@@ -9,7 +6,6 @@ const prisma = require('../db');
 async function runNoShowCheck() {
   const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000); // 2 hours ago
 
-  // Find all accepted reservations where the listing expired more than 2 hours ago
   const stale = await prisma.reservation.findMany({
     where: {
       status:  'accepted',
@@ -25,7 +21,7 @@ async function runNoShowCheck() {
   for (const r of stale) {
     try {
       await prisma.$transaction([
-        // 1. Mark reservation as cancelled with a no-show reason
+        
         prisma.reservation.update({
           where: { id: r.id },
           data:  {
@@ -35,21 +31,20 @@ async function runNoShowCheck() {
           },
         }),
 
-        // 2. Re-list food as available so provider can re-post if they want
-        //    (only if listing isn't already picked_up or expired by something else)
+
         prisma.foodListing.update({
           where: { id: r.listingId },
           data:  { status: 'available' },
         }),
 
-        // 3. Increment the receiver's no-show counter
+
         prisma.user.update({
           where: { id: r.receiverId },
           data:  { noShowCount: { increment: 1 } },
         }),
       ]);
 
-      // 4. Notify provider
+      
       await prisma.notification.create({
         data: {
           userId:  r.listing.providerId,
@@ -59,7 +54,7 @@ async function runNoShowCheck() {
         },
       });
 
-      // 5. Notify receiver
+      
       await prisma.notification.create({
         data: {
           userId:  r.receiverId,
