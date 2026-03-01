@@ -278,12 +278,25 @@ router.post('/:id/reserve', verifyToken, async (req, res) => {
       prisma.reservation.create({ data: { receiverId: receiver.id, listingId, status: 'pending' } }),
     ]);
 
+    const providerUser = await prisma.user.findUnique({ where: { id: listing.providerId } });
+    await prisma.notification.create({
+      data: {
+        userId:  listing.providerId,
+        type:    'new_reservation',
+        message: `${receiver.name} just reserved your "${listing.foodName}"! Accept or decline in your dashboard.`,
+        link:    '/dashboard',
+      },
+    });
+
     res.json({ message: 'Food reserved successfully! Head to the pickup location.' });
 
   } catch (error) {
     console.error('Reserve error:', error.message);
     res.status(500).json({ error: 'Failed to reserve listing.' });
   }
+
+  // Notify provider of new reservation
+
 });
 
 // ─────────────────────────────────────────

@@ -30,7 +30,10 @@ app.use('/listings', listingsRoutes);
 
 // Reservations history 
 const reservationsRoutes = require('./routes/reservations');  // ← new
-app.use('/reservations', reservationsRoutes);     
+app.use('/reservations', reservationsRoutes);   
+
+app.use('/notifications', require('./routes/notifications'));  
+app.use('/messages',      require('./routes/messages'));   
 
 // Start the server on the port from .env (3001)
 const PORT = process.env.PORT || 3001;

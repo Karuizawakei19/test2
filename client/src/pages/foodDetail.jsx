@@ -118,7 +118,7 @@ function FoodDetail() {
       <div style={{ fontSize: '56px', marginBottom: '16px' }}>✅</div>
       <h2 style={{ color: '#166534', margin: '0 0 8px' }}>Food Reserved!</h2>
       <p style={{ color: '#555', lineHeight: '1.6', marginTop: '8px' }}>
-        Head to <strong>{listing.address}</strong> to pick up your food.
+        Reserved sucessfully. Wait for the provider to accept it.
         {listing.pickupWindowStart && listing.pickupWindowEnd && (
           <> The provider is available from{' '}
             <strong>
