@@ -200,6 +200,22 @@ function FoodCard({ listing, getTimeLabel, onReserved }) {
         )}
       </p>
 
+      {/* Storage condition badge */}
+      <p style={{ margin: '4px 0', fontSize: '13px', color: '#555' }}>
+        {listing.storageCondition === 'refrigerated' && '❄️ Keep refrigerated'}
+        {listing.storageCondition === 'frozen'        && '🧊 Frozen — handle immediately'}
+        {listing.storageCondition === 'room_temp'     && '🌡️ Room temperature'}
+      </p>
+
+        {/* Pickup window if set */}
+        {listing.pickupWindowStart && listing.pickupWindowEnd && (
+          <p style={{ margin: '4px 0', fontSize: '13px', color: '#555' }}>
+            🕐 Pickup: {new Date(listing.pickupWindowStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            {' – '}
+            {new Date(listing.pickupWindowEnd).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </p>
+        )}
+
       {/* Address */}
       <p style={{ margin: '4px 0', color: '#555' }}> {listing.address}</p>
 
@@ -212,6 +228,8 @@ function FoodCard({ listing, getTimeLabel, onReserved }) {
         />
         I understand this food is near-expiry and for immediate consumption.
       </label>
+
+ 
 
       {/* Reserve button */}
       <button

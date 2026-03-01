@@ -15,7 +15,9 @@ function PostFood() {
 
   const [coords, setCoords]               = useState(null);   
   const [locationStatus, setLocationStatus] = useState('asking');  'denied'
-
+  const [storageCondition, setStorageCondition] = useState('room_temp');
+  const [pickupWindowStart, setPickupWindowStart] = useState('');
+  const [pickupWindowEnd, setPickupWindowEnd]     = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -72,6 +74,9 @@ function PostFood() {
         longitude: coords.lng,
         allowFree,                         
         minimumPrice: allowFree ? 0 : parseFloat(minimumPrice), 
+        storageCondition,
+        pickupWindowStart: pickupWindowStart || null,
+        pickupWindowEnd:   pickupWindowEnd   || null,
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -186,7 +191,7 @@ function PostFood() {
           <small style={{ color: '#888' }}>Price will decrease every 15 minutes as expiry approaches.</small>
         </div>
 
-        {/* FIX 2: Allow Free Question */}
+        {/* Allow Free Question */}
         <div style={{ marginBottom: '14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px' }}>
           <label style={{ fontWeight: '500', display: 'block', marginBottom: '8px' }}>
             Allow this food to become <strong>FREE</strong> when near expiry?
@@ -213,7 +218,7 @@ function PostFood() {
           </div>
         </div>
 
-        {/* FIX 3: Minimum Price — only shows when allowFree = false */}
+        {/* Minimum Price — only shows when allowFree = false */}
         {allowFree === false && (
           <div style={{ marginBottom: '14px', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: '6px', padding: '12px' }}>
             <label style={{ fontWeight: '500' }}>Minimum Price (₱)</label><br />
@@ -233,7 +238,7 @@ function PostFood() {
           </div>
         )}
 
-        {/* Expiry — FIX 5: no hint about 72 hours */}
+        {/* expiry */}
         <div style={{ marginBottom: '14px' }}>
           <label style={{ fontWeight: '500' }}>Expires At</label><br />
           <input
@@ -244,6 +249,47 @@ function PostFood() {
             style={{ width: '100%', padding: '8px', marginTop: '4px', borderRadius: '4px', border: '1px solid #ccc' }}
           />
           <small style={{ color: '#888' }}>When does this food expire or need to be picked up by?</small>
+        </div>
+
+        {/* Storage Condition */}
+        <div style={{ marginBottom: '14px' }}>
+          <label style={{ fontWeight: '500' }}>Storage Condition</label><br />
+          <select
+            value={storageCondition}
+            onChange={e => setStorageCondition(e.target.value)}
+            style={{ width: '100%', padding: '8px', marginTop: '4px', borderRadius: '4px', border: '1px solid #ccc' }}
+          >
+            <option value="room_temp"> Room Temperature</option>
+            <option value="refrigerated"> Refrigerated</option>
+            <option value="frozen"> Frozen</option>
+          </select>
+          <small style={{ color: '#888' }}>How is this food currently stored?</small>
+        </div>
+
+        {/* Pickup Window */}
+        <div style={{ marginBottom: '14px' }}>
+          <label style={{ fontWeight: '500' }}>Pickup Window (optional)</label>
+          <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+            <div style={{ flex: 1 }}>
+              <small style={{ color: '#888' }}>From</small><br />
+              <input
+                type="datetime-local"
+                value={pickupWindowStart}
+                onChange={e => setPickupWindowStart(e.target.value)}
+                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <small style={{ color: '#888' }}>Until</small><br />
+              <input
+                type="datetime-local"
+                value={pickupWindowEnd}
+                onChange={e => setPickupWindowEnd(e.target.value)}
+                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+              />
+            </div>
+          </div>
+          <small style={{ color: '#888' }}>When are you available for pickup? Leave blank if anytime before expiry is fine.</small>
         </div>
 
         {/* Address */}

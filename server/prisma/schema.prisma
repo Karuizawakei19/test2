@@ -41,6 +41,9 @@ model FoodListing {
   createdAt     DateTime @default(now())        // when the listing was posted
   allowFree     Boolean  @default(true)         // can price drop to ₱0?
   minimumPrice  Float    @default(0)            // floor price when allowFree = false
+  storageCondition  String   @default("room_temp")  // "room_temp", "refrigerated", "frozen"
+  pickupWindowStart DateTime?                        // e.g. today at 3:00 PM
+  pickupWindowEnd   DateTime?                        // e.g. today at 5:00 PM
 
   // Which provider posted this listing
   providerId   String
