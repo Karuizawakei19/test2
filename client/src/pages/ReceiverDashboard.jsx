@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { showToast, showConfirm } from '../components/Toast';
 import api from '../api';
 
 const categoryLabel = {
@@ -48,14 +49,19 @@ function ReceiverDashboard() {
   }
 
   async function handleCancel(reservationId) {
-    if (!window.confirm('Are you sure you want to cancel this reservation?')) return;
+    const yes = await showConfirm('Are you sure you want to cancel this reservation?', {
+    confirmLabel: 'Yes, Cancel',
+    cancelLabel: 'Keep It',
+    type: 'warning',
+    });
+    if (!yes) return;
     try {
       await api.patch(`/reservations/${reservationId}/cancel`, {}, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setReservations(prev => prev.filter(r => r.id !== reservationId));
     } catch (err) {
-      alert(err.response?.data?.error || 'Could not cancel. Try again.');
+      showToast(err.response?.data?.error || 'Could not cancel. Try again.', 'error');
     }
   }
 

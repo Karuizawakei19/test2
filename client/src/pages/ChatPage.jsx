@@ -96,7 +96,7 @@ export default function ChatPage() {
       setText('');
       textareaRef.current?.focus();
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to send.');
+      showToast(err.response?.data?.error || 'Failed to send.', 'error');
     } finally {
       setSending(false);
     }

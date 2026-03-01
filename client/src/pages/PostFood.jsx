@@ -140,12 +140,12 @@ function PostFood() {
         storageCondition,
         pickupWindowStart: pickupWindowStart || null,
         pickupWindowEnd:   pickupWindowEnd   || null,
-        imageUrl,           // null if no image — that's fine
+        imageUrl,           
       }, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      alert(`"${res.data.listing.foodName}" has been listed!`);
+      showToast(`"${res.data.listing.foodName}" has been listed!`, 'success', 4000);
       navigate('/dashboard');
 
     } catch (err) {

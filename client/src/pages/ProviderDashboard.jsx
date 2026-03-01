@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { showToast, showConfirm } from '../components/Toast';
 import api from '../api';
 
 // ── Status badge ──
@@ -71,7 +72,7 @@ function ProviderDashboard() {
       });
       await fetchAll();
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to accept.');
+      showToast(err.response?.data?.error || 'Failed to accept.', 'error');
     }
   }
 
@@ -85,7 +86,7 @@ function ProviderDashboard() {
       setDeclineNote('');
       await fetchAll();
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to decline.');
+      showToast(err.response?.data?.error || 'Failed to decline.', 'error');
     }
   }
 
@@ -95,9 +96,9 @@ function ProviderDashboard() {
         headers: { Authorization: `Bearer ${token}` },
       });
       await fetchAll();
-      alert('Pickup confirmed! Food has been rescued. 🎉');
+      showToast('Pickup confirmed! Food has been rescued.', 'success', 4000);
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to confirm.');
+      showToast(err.response?.data?.error || 'Failed to confirm.', 'error');
     }
   }
 
