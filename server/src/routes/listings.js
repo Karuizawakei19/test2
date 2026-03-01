@@ -44,8 +44,18 @@ function calculateCurrentPrice(originalPrice, createdAt, expiresAt, allowFree, m
 // HELPER 2: HAVERSINE DISTANCE
 // ─────────────────────────────────────────
 function getDistanceKm(lat1, lon1, lat2, lon2) {
-  
+  const R = 6371;
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
 }
+
 
 // ─────────────────────────────────────────
 // GET /listings?lat=14.65&lng=121.07
@@ -140,7 +150,8 @@ router.post('/', verifyToken, async (req, res) => {
   const {
     foodName, quantity, originalPrice,
     expiresAt, address, latitude, longitude,
-    allowFree, minimumPrice               
+    allowFree, minimumPrice, storageCondition, pickupWindowStart, pickupWindowEnd,
+    foodCategory, imageUrl     
   } = req.body;
 
 
@@ -160,6 +171,34 @@ router.post('/', verifyToken, async (req, res) => {
     return res.status(400).json({ error: 'Expiry time must be in the future.' });
   }
 
+  // Validate pickup window 
+  if (pickupWindowStart && pickupWindowEnd) {
+    const windowStart = new Date(pickupWindowStart);
+    const windowEnd   = new Date(pickupWindowEnd);
+
+    if (isNaN(windowStart.getTime()) || isNaN(windowEnd.getTime())) {
+      return res.status(400).json({ error: 'Invalid pickup window dates.' });
+    }
+    if (windowEnd <= windowStart) {
+      return res.status(400).json({ error: 'Pickup window end time must be after the start time.' });
+    }
+    if (windowEnd > expiry) {
+      return res.status(400).json({ error: 'Pickup window must end before the food expires.' });
+    }
+  }
+
+  const resolvedCategory = foodCategory || 'other';
+
+  if (resolvedCategory === 'prepared_meal') {
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+
+    if (expiry > endOfToday) {
+      return res.status(400).json({
+        error: 'Prepared meals can only be listed for same-day pickup. Set the expiry to before midnight today.'
+      });
+    }
+  }
   
   const resolvedAllowFree = allowFree === true || allowFree === 'true';
   const resolvedMinimumPrice = parseFloat(minimumPrice) || 0;
@@ -190,7 +229,12 @@ router.post('/', verifyToken, async (req, res) => {
         longitude: parseFloat(longitude),
         allowFree: resolvedAllowFree,
         minimumPrice: resolvedAllowFree ? 0 : resolvedMinimumPrice,
+        foodCategory: resolvedCategory,
+        imageUrl:      imageUrl || null,
         providerId: provider.id,
+        storageCondition: storageCondition || 'room_temp',
+        pickupWindowStart: pickupWindowStart ? new Date(pickupWindowStart) : null,
+        pickupWindowEnd: pickupWindowEnd ? new Date(pickupWindowEnd) : null,
       },
     });
     res.status(201).json({ message: 'Food listed successfully!', listing });
@@ -210,11 +254,12 @@ router.post('/:id/reserve', verifyToken, async (req, res) => {
     const receiver = await prisma.user.findUnique({ where: { firebaseUid: req.user.uid } });
     if (!receiver) return res.status(404).json({ error: 'User not found.' });
     if (receiver.role !== 'receiver') return res.status(403).json({ error: 'Only receivers can reserve food.' });
-
     const listing = await prisma.foodListing.findUnique({ where: { id: listingId } });
     if (!listing) return res.status(404).json({ error: 'Listing not found.' });
     if (listing.status !== 'available') return res.status(400).json({ error: 'This food has already been reserved.' });
     if (new Date(listing.expiresAt) <= new Date()) return res.status(400).json({ error: 'This food has already expired.' });
+   
+
 
     await prisma.$transaction([
       prisma.foodListing.update({ where: { id: listingId }, data: { status: 'reserved' } }),

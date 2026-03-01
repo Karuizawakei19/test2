@@ -28,6 +28,10 @@ app.use('/auth', authRoutes);
 const listingsRoutes = require('./routes/listings');
 app.use('/listings', listingsRoutes);
 
+// Reservations history 
+const reservationsRoutes = require('./routes/reservations');  // ← new
+app.use('/reservations', reservationsRoutes);     
+
 // Start the server on the port from .env (3001)
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {

@@ -2,235 +2,246 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 
+// ─────────────────────────────────────────
+// Category labels
+// ─────────────────────────────────────────
+const categoryLabel = {
+  prepared_meal: 'Prepared Meal',
+  baked_goods:   'Baked Goods',
+  fresh_produce: 'Fresh Produce',
+  packaged:      'Packaged',
+  other:         'Food',
+};
+
+// ─────────────────────────────────────────
+// Time left helper
+// ─────────────────────────────────────────
+function getTimeLabel(expiresAt) {
+  const msLeft = new Date(expiresAt) - new Date();
+  if (msLeft <= 0) return { text: 'Expired', color: '#6b7280' };
+  const hoursLeft = Math.floor(msLeft / (1000 * 60 * 60));
+  const minsLeft  = Math.floor((msLeft % (1000 * 60 * 60)) / (1000 * 60));
+  if (hoursLeft === 0) return { text: `🔴 ${minsLeft}m left — URGENT`, color: '#ef4444' };
+  if (hoursLeft < 3)   return { text: `🟡 ${hoursLeft}h ${minsLeft}m left`, color: '#f59e0b' };
+  return { text: `🟢 ${hoursLeft}h ${minsLeft}m left`, color: '#22c55e' };
+}
+
+// ─────────────────────────────────────────
+// BROWSE PAGE
+// ─────────────────────────────────────────
 function Browse() {
   const [listings, setListings] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState('');
   const navigate = useNavigate();
 
-  
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (!token) {
-      navigate('/');
-      return;
-    }
+    if (!token) { navigate('/'); return; }
 
-    //  get the receiver's GPS location
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        // Got coordinates — fetch listings with location
-        fetchListings(pos.coords.latitude, pos.coords.longitude);
-      },
-      () => {
-        // Location denied:
-        // listings will show without distance filter
-        fetchListings(null, null);
-      }
+      (pos) => fetchListings(pos.coords.latitude, pos.coords.longitude),
+      ()    => fetchListings(null, null)
     );
   }, []);
 
   async function fetchListings(lat, lng) {
     try {
       const params = lat && lng ? `?lat=${lat}&lng=${lng}` : '';
-
       const res = await api.get(`/listings${params}`);
       setListings(res.data.listings);
-
-    } catch (err) {
+    } catch {
       setError('Could not load listings. Is the server running?');
     } finally {
       setLoading(false);
     }
   }
 
-  // ─────────────────────────────────────────
-  // HELPER: TIME LEFT LABEL
-  // ─────────────────────────────────────────
-  function getTimeLabel(expiresAt) {
-    const now = new Date();
-    const expiry = new Date(expiresAt);
-    const msLeft = expiry - now; // milliseconds 
+  if (loading) return (
+    <div style={{ padding: '40px', textAlign: 'center' }}>
+      <p style={{ color: '#888' }}> Finding food near you...</p>
+    </div>
+  );
 
-    if (msLeft <= 0) return 'Expired';
-
-    // Convert milliseconds to hours and minutes
-    const hoursLeft = Math.floor(msLeft / (1000 * 60 * 60));
-    const minsLeft = Math.floor((msLeft % (1000 * 60 * 60)) / (1000 * 60));
-
-    if (hoursLeft === 0) {
-      return ` ${minsLeft}m left - URGENT`;
-    } else if (hoursLeft < 3) {
-      return ` ${hoursLeft}h ${minsLeft}m left`;
-    } else {
-      return ` ${hoursLeft}h ${minsLeft}m left`;
-    }
-  }
-
-  // ─────────────────────────────────────────
-  // RENDER
-  // ─────────────────────────────────────────
-  if (loading) {
-    return (
-      <div style={{ padding: '40px' }}>
-        <p>Loading nearby food...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div style={{ padding: '40px' }}>
-        <p style={{ color: 'red' }}>{error}</p>
-      </div>
-    );
-  }
+  if (error) return (
+    <div style={{ padding: '40px' }}>
+      <p style={{ color: 'red' }}>{error}</p>
+    </div>
+  );
 
   return (
-    <div style={{ padding: '20px', maxWidth: '600px', margin: '0 auto' }}>
+    <div style={{ padding: '24px', background: '#f8fafc', minHeight: '100vh' }}>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2>Available Food Near You</h2>
-        <button
-          onClick={() => {
-            localStorage.clear();
-            navigate('/');
-          }}
-          style={{ background: 'none', border: '1px solid #ccc', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer' }}
-        >
-          Logout
-        </button>
+      {/* Page header */}
+      <div style={{ marginBottom: '24px' }}>
+        <h2 style={{ margin: 0, fontSize: '22px', color: '#1e293b' }}>
+           Available Food Near You
+        </h2>
+        <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '14px' }}>
+          Click any listing to see full details and reserve.
+        </p>
       </div>
 
+      {/* Empty state */}
       {listings.length === 0 && (
-        <div style={{ padding: '40px', textAlign: 'center', color: '#888' }}>
-          <p>No food available near you right now.</p>
-          <p>Check back soon!</p>
+        <div style={{ textAlign: 'center', padding: '60px 20px', color: '#94a3b8' }}>
+          <div style={{ fontSize: '48px', marginBottom: '12px' }}>🫙</div>
+          <p style={{ fontSize: '16px', fontWeight: '500' }}>No food available near you right now.</p>
+          <p style={{ fontSize: '14px' }}>Check back soon — providers list food throughout the day.</p>
         </div>
       )}
 
-      {listings.map(listing => (
-        <FoodCard
-          key={listing.id}
-          listing={listing}
-          getTimeLabel={getTimeLabel}
-          onReserved={(id) => {
-            // Remove reserved listing from the list 
-            setListings(prev => prev.filter(l => l.id !== id));
-          }}
-        />
-      ))}
+      {/* Card grid — 2 columns on wide screens, 1 on small */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+        gap: '16px',
+      }}>
+        {listings.map(listing => (
+          <FoodCard
+            key={listing.id}
+            listing={listing}
+          />
+        ))}
+      </div>
 
     </div>
   );
 }
 
 // ─────────────────────────────────────────
-// FOOD CARD COMPONENT
+// FOOD CARD — click to go to detail page
 // ─────────────────────────────────────────
-function FoodCard({ listing, getTimeLabel, onReserved }) {
-  const [reserving, setReserving] = useState(false);
-  const [agreed, setAgreed] = useState(false); // disclaimer checkbox
+function FoodCard({ listing }) {
+  const navigate = useNavigate();
+  const { text: timeText, color: timeColor } = getTimeLabel(listing.expiresAt);
 
-  async function handleReserve() {
-    if (!agreed) {
-      alert('Please confirm you understand this food is near-expiry.');
-      return;
-    }
-
-    setReserving(true);
-    try {
-      const token = localStorage.getItem('token');
-      await api.post(`/listings/${listing.id}/reserve`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      alert(`Reserved! Head to ${listing.address} to pick it up.`);
-      onReserved(listing.id); // remove from list
-    } catch (err) {
-      alert(err.response?.data?.error || 'Could not reserve. Try again.');
-    } finally {
-      setReserving(false);
-    }
-  }
-
-  // Card border color based on urgency
-  const msLeft = new Date(listing.expiresAt) - new Date();
+  // Urgency-based top bar color
+  const msLeft    = new Date(listing.expiresAt) - new Date();
   const hoursLeft = msLeft / (1000 * 60 * 60);
-  const borderColor = hoursLeft < 1 ? '#ef4444' : hoursLeft < 3 ? '#f59e0b' : '#22c55e';
+  const urgencyColor = hoursLeft < 1 ? '#ef4444' : hoursLeft < 3 ? '#f59e0b' : '#22c55e';
 
   return (
+    <div
+      onClick={() => navigate(`/listing/${listing.id}`)}
+      style={{
+        background: 'white',
+        borderRadius: '12px',
+        overflow: 'hidden',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+        cursor: 'pointer',
+        transition: 'transform 0.15s, box-shadow 0.15s',
+        border: '1px solid #e2e8f0',
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.transform = 'translateY(-3px)';
+        e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.12)';
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.transform = 'translateY(0)';
+        e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.08)';
+      }}
+    >
+    {/* Image — real photo if available, gradient placeholder if not */}
     <div style={{
-      border: `2px solid ${borderColor}`,
-      borderRadius: '10px',
-      padding: '16px',
-      marginBottom: '16px',
-      background: 'white',
+      width: '100%',
+      height: '160px',
+      position: 'relative',
+      overflow: 'hidden',
+      background: 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: '52px',
     }}>
-
-      {/* Food name and provider */}
-      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-        <h3 style={{ margin: 0 }}>{listing.foodName}</h3>
-        <span style={{ color: '#888', fontSize: '14px' }}>by {listing.provider?.name}</span>
-      </div>
-
-      {/* Time left — the urgency indicator */}
-      <p style={{ margin: '8px 0', fontWeight: 'bold', fontSize: '15px' }}>
-        {getTimeLabel(listing.expiresAt)}
-      </p>
-
-      {/* Price — show decay */}
-      <p style={{ margin: '4px 0' }}>
-         Price:{' '}
-        {listing.currentPrice === 0
-          ? <strong style={{ color: '#22c55e' }}>FREE</strong>
-          : <>
-              <strong>₱{listing.currentPrice}</strong>
-              {listing.currentPrice < listing.originalPrice && (
-                <s style={{ color: '#aaa', marginLeft: '6px' }}>₱{listing.originalPrice}</s>
-              )}
-            </>
-        }
-      </p>
-
-      {/* Quantity and distance */}
-      <p style={{ margin: '4px 0', color: '#555' }}>
-        Qty: {listing.quantity}
-        {listing.distanceKm !== null && (
-          <span style={{ marginLeft: '16px' }}> {listing.distanceKm} km away</span>
-        )}
-      </p>
-
-      {/* Address */}
-      <p style={{ margin: '4px 0', color: '#555' }}> {listing.address}</p>
-
-      {/* Disclaimer checkbox */}
-      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '12px 0', fontSize: '13px', color: '#555' }}>
-        <input
-          type="checkbox"
-          checked={agreed}
-          onChange={e => setAgreed(e.target.checked)}
+      {listing.imageUrl ? (
+        <img
+          src={listing.imageUrl}
+          alt={listing.foodName}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
         />
-        I understand this food is near-expiry and for immediate consumption.
-      </label>
+      ) : (
+        // Fallback icon when no photo
+        <>
+          {listing.foodCategory === 'prepared_meal' && ''}
+          {listing.foodCategory === 'baked_goods'   && ''}
+          {listing.foodCategory === 'fresh_produce' && ''}
+          {listing.foodCategory === 'packaged'      && ''}
+          {(!listing.foodCategory || listing.foodCategory === 'other') && '🍽️'}
+        </>
+      )}
 
-      {/* Reserve button */}
-      <button
-        onClick={handleReserve}
-        disabled={reserving}
-        style={{
-          width: '100%',
-          padding: '10px',
-          backgroundColor: agreed ? '#22c55e' : '#ccc',
-          color: 'white',
-          border: 'none',
-          borderRadius: '6px',
-          cursor: agreed ? 'pointer' : 'not-allowed',
+      {/* Urgency colour strip — always on top */}
+      <div style={{
+        position: 'absolute',
+        top: 0, left: 0, right: 0,
+        height: '4px',
+        background: urgencyColor,
+      }} />
+    </div>
+
+      {/* Card body */}
+      <div style={{ padding: '12px' }}>
+
+        {/* Food name */}
+        <h3 style={{
+          margin: '0 0 4px',
           fontSize: '15px',
-        }}
-      >
-        {reserving ? 'Reserving...' : 'Reserve This Food'}
-      </button>
+          fontWeight: '600',
+          color: '#1e293b',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        }}>
+          {listing.foodName}
+        </h3>
 
+        {/* Provider name */}
+        <p style={{ margin: '0 0 8px', fontSize: '12px', color: '#94a3b8' }}>
+          by {listing.provider?.name}
+        </p>
+
+        {/* Category badge */}
+        <span style={{
+          display: 'inline-block',
+          fontSize: '11px',
+          padding: '2px 8px',
+          borderRadius: '20px',
+          background: '#f1f5f9',
+          color: '#475569',
+          fontWeight: '500',
+          marginBottom: '8px',
+        }}>
+          {categoryLabel[listing.foodCategory] || '🍽️ Food'}
+        </span>
+
+        {/* Time left */}
+        <p style={{ margin: '0 0 6px', fontSize: '12px', fontWeight: '600', color: timeColor }}>
+          {timeText}
+        </p>
+
+        {/* Price */}
+        <p style={{ margin: '0 0 6px', fontSize: '14px' }}>
+          {listing.currentPrice === 0
+            ? <strong style={{ color: '#22c55e', fontSize: '16px' }}>FREE</strong>
+            : <>
+                <strong style={{ fontSize: '16px', color: '#1e293b' }}>₱{listing.currentPrice}</strong>
+                {listing.currentPrice < listing.originalPrice && (
+                  <s style={{ color: '#aaa', marginLeft: '6px', fontSize: '12px' }}>₱{listing.originalPrice}</s>
+                )}
+              </>
+          }
+        </p>
+
+        {/* Distance + qty row */}
+        <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>
+          {listing.quantity} serving{listing.quantity !== 1 ? 's' : ''}
+          {listing.distanceKm !== null && listing.distanceKm !== undefined && (
+            <span style={{ marginLeft: '8px' }}>· {listing.distanceKm} km away</span>
+          )}
+        </p>
+
+      </div>
     </div>
   );
 }
