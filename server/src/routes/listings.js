@@ -179,6 +179,67 @@ router.get('/mine', verifyToken, async (req, res) => {
 });
 
 // ─────────────────────────────────────────
+// GET /listings/:id  — single listing (any status)
+// ─────────────────────────────────────────
+router.get('/:id', async (req, res) => {
+  const { lat, lng } = req.query;
+  const receiverLat = parseFloat(lat);
+  const receiverLng = parseFloat(lng);
+  const hasLocation = !isNaN(receiverLat) && !isNaN(receiverLng);
+
+  try {
+    const listing = await prisma.foodListing.findUnique({
+      where: { id: req.params.id },
+      include: {
+        provider: {
+          select: {
+            id: true,
+            name: true,
+            ratingsReceived: { select: { score: true } },
+          },
+        },
+      },
+    });
+
+    if (!listing) return res.status(404).json({ error: 'Listing not found.' });
+
+    const currentPrice = calculateCurrentPrice(
+      listing.originalPrice, listing.createdAt,
+      listing.expiresAt, listing.allowFree, listing.minimumPrice
+    );
+
+    let distanceKm = null;
+    if (hasLocation) {
+      const raw = getDistanceKm(receiverLat, receiverLng, listing.latitude, listing.longitude);
+      distanceKm = Math.round(raw * 10) / 10;
+    }
+
+    const ratingScores = listing.provider?.ratingsReceived || [];
+    const avgRating = ratingScores.length
+      ? Math.round((ratingScores.reduce((s, r) => s + r.score, 0) / ratingScores.length) * 10) / 10
+      : null;
+
+    res.json({
+      listing: {
+        ...listing,
+        currentPrice,
+        distanceKm,
+        provider: {
+          id:           listing.provider?.id,
+          name:         listing.provider?.name,
+          avgRating,
+          totalRatings: ratingScores.length,
+        },
+      },
+    });
+
+  } catch (error) {
+    console.error('Get listing by id error:', error.message);
+    res.status(500).json({ error: 'Failed to fetch listing.' });
+  }
+});
+
+// ─────────────────────────────────────────
 // POST /listings
 // ─────────────────────────────────────────
 router.post('/', verifyToken, async (req, res) => {

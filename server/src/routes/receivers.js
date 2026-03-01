@@ -63,7 +63,8 @@ router.get('/:id', verifyToken, async (req, res) => {
         id:            receiver.id,
         name:          receiver.name,
         contactNumber: receiver.contactNumber,
-        memberSince,
+        memberSince: receiver.createdAt,
+        noShowCount:   receiver.noShowCount, 
       },
       stats: {
         totalReservations,

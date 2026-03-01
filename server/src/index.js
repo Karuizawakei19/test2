@@ -39,6 +39,10 @@ app.use('/ratings',   require('./routes/ratings'));
 app.use('/providers', require('./routes/providers'));
 app.use('/receivers', require('./routes/receivers'));
 
+
+const { startNoShowCron } = require('./cron/noShowTimeout');
+startNoShowCron();
+
 // Start the server on the port from .env (3001)
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {

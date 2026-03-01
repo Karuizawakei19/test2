@@ -162,7 +162,37 @@ export default function ReceiverProfile() {
           <StatCard emoji="❌" value={stats.totalCancelled}  label="Cancelled"     color="#ef4444" />
           <StatCard emoji="🚫" value={stats.totalDeclined}   label="Declined"      color="#94a3b8" />
           <StatCard emoji="⭐" value={stats.ratingsGiven}    label="Reviews Given" color="#f59e0b" />
+          {/* ── No-Show stat card (NEW) ── */}
+          <StatCard
+            emoji={receiver.noShowCount === 0 ? '✅' : receiver.noShowCount >= 3 ? '🚫' : '⚠️'}
+            value={receiver.noShowCount}
+            label="No-Shows"
+            color={receiver.noShowCount === 0 ? '#22c55e' : receiver.noShowCount >= 3 ? '#ef4444' : '#f59e0b'}
+          />
         </div>
+
+        {/* ── No-Show warning banner (NEW) — only shown if noShowCount >= 2 ── */}
+        {receiver.noShowCount >= 2 && (
+          <div style={{
+            background: receiver.noShowCount >= 3 ? '#fee2e2' : '#fffbeb',
+            border: `1px solid ${receiver.noShowCount >= 3 ? '#fca5a5' : '#fcd34d'}`,
+            borderRadius: '10px', padding: '12px 14px', marginBottom: '20px',
+            display: 'flex', gap: '10px', alignItems: 'flex-start',
+          }}>
+            <span style={{ fontSize: '20px', flexShrink: 0 }}>
+              {receiver.noShowCount >= 3 ? '🚫' : '⚠️'}
+            </span>
+            <div>
+              <p style={{ margin: 0, fontSize: '13px', fontWeight: '700', color: receiver.noShowCount >= 3 ? '#991b1b' : '#92400e' }}>
+                {receiver.noShowCount >= 3 ? 'High No-Show Risk' : 'No-Show Warning'}
+              </p>
+              <p style={{ margin: '3px 0 0', fontSize: '12px', color: receiver.noShowCount >= 3 ? '#b91c1c' : '#a16207', lineHeight: '1.5' }}>
+                This receiver has {receiver.noShowCount} recorded no-show{receiver.noShowCount !== 1 ? 's' : ''}.
+                {receiver.noShowCount >= 3 ? ' Consider declining their reservation.' : ' Use your judgement when accepting their reservation.'}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* ── Reliability explanation ── */}
         <div style={{

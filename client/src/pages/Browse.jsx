@@ -25,14 +25,16 @@ function Browse() {
   const [listings,    setListings]    = useState([]);
   const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState('');
+  const [hasLocation, setHasLocation] = useState(false);
 
   // ── Filter state ──
-  const [search,      setSearch]      = useState('');
-  const [filterCat,   setFilterCat]   = useState('all');
-  const [filterPrice, setFilterPrice] = useState('all');  // 'all' | 'free' | 'under50' | 'under100'
-  const [filterStore, setFilterStore] = useState('all');  // 'all' | 'room_temp' | 'refrigerated' | 'frozen'
-  const [sortBy,      setSortBy]      = useState('distance'); // 'distance' | 'expiry' | 'price_asc' | 'price_desc'
-  const [showFilters, setShowFilters] = useState(false);
+  const [search,       setSearch]      = useState('');
+  const [filterCat,    setFilterCat]   = useState('all');
+  const [filterPrice,  setFilterPrice] = useState('all');
+  const [filterStore,  setFilterStore] = useState('all');
+  const [filterDist,   setFilterDist]  = useState('all'); // ← NEW: 'all'|'1'|'3'|'5'
+  const [sortBy,       setSortBy]      = useState('distance');
+  const [showFilters,  setShowFilters] = useState(false);
 
   const navigate = useNavigate();
 
@@ -40,8 +42,11 @@ function Browse() {
     const token = localStorage.getItem('token');
     if (!token) { navigate('/'); return; }
     navigator.geolocation.getCurrentPosition(
-      pos => fetchListings(pos.coords.latitude, pos.coords.longitude),
-      ()  => fetchListings(null, null)
+      pos => {
+        setHasLocation(true);
+        fetchListings(pos.coords.latitude, pos.coords.longitude);
+      },
+      () => fetchListings(null, null)
     );
   }, []);
 
@@ -57,7 +62,7 @@ function Browse() {
     }
   }
 
-  // ── Client-side filter + sort (no extra API calls) ──
+  // ── Client-side filter + sort ──
   const filtered = useMemo(() => {
     let result = [...listings];
 
@@ -72,9 +77,7 @@ function Browse() {
     }
 
     // Category
-    if (filterCat !== 'all') {
-      result = result.filter(l => l.foodCategory === filterCat);
-    }
+    if (filterCat !== 'all') result = result.filter(l => l.foodCategory === filterCat);
 
     // Price
     if (filterPrice === 'free')     result = result.filter(l => l.currentPrice === 0);
@@ -82,22 +85,30 @@ function Browse() {
     if (filterPrice === 'under100') result = result.filter(l => l.currentPrice < 100);
 
     // Storage
-    if (filterStore !== 'all') {
-      result = result.filter(l => l.storageCondition === filterStore);
+    if (filterStore !== 'all') result = result.filter(l => l.storageCondition === filterStore);
+
+    // ── Distance filter (NEW) ──
+    if (filterDist !== 'all') {
+      const maxKm = parseFloat(filterDist);
+      result = result.filter(l => l.distanceKm != null && l.distanceKm <= maxKm);
     }
 
     // Sort
-    if (sortBy === 'expiry')      result.sort((a, b) => new Date(a.expiresAt) - new Date(b.expiresAt));
-    if (sortBy === 'price_asc')   result.sort((a, b) => a.currentPrice - b.currentPrice);
-    if (sortBy === 'price_desc')  result.sort((a, b) => b.currentPrice - a.currentPrice);
-    if (sortBy === 'distance')    result.sort((a, b) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999));
-    if (sortBy === 'rating')      result.sort((a, b) => (b.provider?.avgRating ?? 0) - (a.provider?.avgRating ?? 0));
+    if (sortBy === 'expiry')     result.sort((a, b) => new Date(a.expiresAt) - new Date(b.expiresAt));
+    if (sortBy === 'price_asc')  result.sort((a, b) => a.currentPrice - b.currentPrice);
+    if (sortBy === 'price_desc') result.sort((a, b) => b.currentPrice - a.currentPrice);
+    if (sortBy === 'distance')   result.sort((a, b) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999));
+    if (sortBy === 'rating')     result.sort((a, b) => (b.provider?.avgRating ?? 0) - (a.provider?.avgRating ?? 0));
 
     return result;
-  }, [listings, search, filterCat, filterPrice, filterStore, sortBy]);
+  }, [listings, search, filterCat, filterPrice, filterStore, filterDist, sortBy]);
 
   const activeFilterCount = [
-    filterCat !== 'all', filterPrice !== 'all', filterStore !== 'all', sortBy !== 'distance',
+    filterCat !== 'all',
+    filterPrice !== 'all',
+    filterStore !== 'all',
+    filterDist !== 'all',   // ← NEW
+    sortBy !== 'distance',
   ].filter(Boolean).length;
 
   if (loading) return (
@@ -121,6 +132,7 @@ function Browse() {
         padding: '12px 16px',
         boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
       }}>
+
         {/* Search input */}
         <div style={{ position: 'relative', marginBottom: '10px' }}>
           <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '16px', pointerEvents: 'none' }}>🔍</span>
@@ -145,10 +157,11 @@ function Browse() {
         </div>
 
         {/* Filter toggle row */}
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', overflowX: 'auto', paddingBottom: '2px' }}>
           <button
             onClick={() => setShowFilters(p => !p)}
             style={{
+              flexShrink: 0,
               display: 'flex', alignItems: 'center', gap: '6px',
               padding: '7px 14px', borderRadius: '20px',
               background: showFilters || activeFilterCount > 0 ? '#f0fdf4' : '#f1f5f9',
@@ -167,15 +180,16 @@ function Browse() {
 
           {/* Quick sort pills */}
           {[
-            { key: 'distance',   label: '📍 Nearest' },
-            { key: 'expiry',     label: '⏰ Expiring' },
-            { key: 'price_asc',  label: '₱ Lowest' },
-            { key: 'rating',     label: '⭐ Top Rated' },
+            { key: 'distance',  label: '📍 Nearest' },
+            { key: 'expiry',    label: '⏰ Expiring' },
+            { key: 'price_asc', label: '₱ Lowest' },
+            { key: 'rating',    label: '⭐ Top Rated' },
           ].map(s => (
             <button
               key={s.key}
               onClick={() => setSortBy(s.key)}
               style={{
+                flexShrink: 0,
                 padding: '7px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600',
                 background: sortBy === s.key ? '#22c55e' : '#f1f5f9',
                 color:      sortBy === s.key ? 'white'   : '#64748b',
@@ -190,9 +204,9 @@ function Browse() {
 
         {/* Expanded filter panel */}
         {showFilters && (
-          <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f1f5f9', display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+          <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f1f5f9', display: 'flex', flexWrap: 'wrap', gap: '14px' }}>
 
-            {/* Category filter */}
+            {/* Category */}
             <div style={{ flex: 1, minWidth: '160px' }}>
               <label style={{ fontSize: '12px', fontWeight: '600', color: '#64748b', display: 'block', marginBottom: '6px' }}>CATEGORY</label>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
@@ -205,11 +219,11 @@ function Browse() {
               </div>
             </div>
 
-            {/* Price filter */}
+            {/* Price */}
             <div style={{ flex: 1, minWidth: '160px' }}>
               <label style={{ fontSize: '12px', fontWeight: '600', color: '#64748b', display: 'block', marginBottom: '6px' }}>PRICE</label>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                {[['all', 'Any'], ['free', 'FREE only'], ['under50', 'Under ₱50'], ['under100', 'Under ₱100']].map(([val, lbl]) => (
+                {[['all', 'Any'], ['free', '🆓 FREE only'], ['under50', 'Under ₱50'], ['under100', 'Under ₱100']].map(([val, lbl]) => (
                   <button key={val} onClick={() => setFilterPrice(val)}
                     style={{ padding: '5px 10px', borderRadius: '16px', fontSize: '12px', fontWeight: '500', border: 'none', cursor: 'pointer', background: filterPrice === val ? '#22c55e' : '#f1f5f9', color: filterPrice === val ? 'white' : '#475569' }}>
                     {lbl}
@@ -218,7 +232,7 @@ function Browse() {
               </div>
             </div>
 
-            {/* Storage filter */}
+            {/* Storage */}
             <div style={{ flex: 1, minWidth: '160px' }}>
               <label style={{ fontSize: '12px', fontWeight: '600', color: '#64748b', display: 'block', marginBottom: '6px' }}>STORAGE</label>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
@@ -231,13 +245,39 @@ function Browse() {
               </div>
             </div>
 
+            {/* ── Distance filter (NEW) ── */}
+            <div style={{ flex: 1, minWidth: '160px' }}>
+              <label style={{ fontSize: '12px', fontWeight: '600', color: '#64748b', display: 'block', marginBottom: '6px' }}>
+                📍 MAX DISTANCE
+                {!hasLocation && <span style={{ color: '#f59e0b', fontWeight: '400', marginLeft: '6px' }}>(needs location)</span>}
+              </label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                {[['all', 'Any'], ['1', '≤ 1 km'], ['3', '≤ 3 km'], ['5', '≤ 5 km']].map(([val, lbl]) => (
+                  <button
+                    key={val}
+                    onClick={() => setFilterDist(val)}
+                    disabled={!hasLocation && val !== 'all'}
+                    style={{
+                      padding: '5px 10px', borderRadius: '16px', fontSize: '12px', fontWeight: '500',
+                      border: 'none', cursor: (!hasLocation && val !== 'all') ? 'not-allowed' : 'pointer',
+                      background: filterDist === val ? '#3b82f6' : '#f1f5f9',
+                      color: filterDist === val ? 'white' : (!hasLocation && val !== 'all') ? '#cbd5e1' : '#475569',
+                      opacity: (!hasLocation && val !== 'all') ? 0.5 : 1,
+                    }}
+                  >
+                    {lbl}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Clear all */}
             {activeFilterCount > 0 && (
               <button
-                onClick={() => { setFilterCat('all'); setFilterPrice('all'); setFilterStore('all'); setSortBy('distance'); }}
+                onClick={() => { setFilterCat('all'); setFilterPrice('all'); setFilterStore('all'); setFilterDist('all'); setSortBy('distance'); }}
                 style={{ alignSelf: 'flex-end', padding: '6px 14px', background: '#fff0f0', border: '1px solid #fca5a5', color: '#ef4444', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}
               >
-                Clear All
+                ✕ Clear All
               </button>
             )}
           </div>
@@ -247,14 +287,21 @@ function Browse() {
       {/* ── Results ── */}
       <div style={{ padding: '16px' }}>
 
-        {/* Result count */}
-        <p style={{ margin: '0 0 14px', fontSize: '13px', color: '#64748b' }}>
-          {filtered.length === listings.length
-            ? `${listings.length} listing${listings.length !== 1 ? 's' : ''} near you`
-            : `${filtered.length} of ${listings.length} listings`
-          }
-          {search && <span> for "<strong>{search}</strong>"</span>}
-        </p>
+        {/* Result count + active distance badge */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' }}>
+          <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
+            {filtered.length === listings.length
+              ? `${listings.length} listing${listings.length !== 1 ? 's' : ''} near you`
+              : `${filtered.length} of ${listings.length} listings`
+            }
+            {search && <span> for "<strong>{search}</strong>"</span>}
+          </p>
+          {filterDist !== 'all' && (
+            <span style={{ fontSize: '12px', background: '#dbeafe', color: '#1e40af', borderRadius: '12px', padding: '2px 10px', fontWeight: '600' }}>
+              📍 Within {filterDist} km
+            </span>
+          )}
+        </div>
 
         {/* Empty state */}
         {filtered.length === 0 && (
@@ -265,7 +312,7 @@ function Browse() {
             </p>
             {listings.length > 0 && (
               <button
-                onClick={() => { setSearch(''); setFilterCat('all'); setFilterPrice('all'); setFilterStore('all'); }}
+                onClick={() => { setSearch(''); setFilterCat('all'); setFilterPrice('all'); setFilterStore('all'); setFilterDist('all'); }}
                 style={{ padding: '8px 20px', background: '#22c55e', color: 'white', border: 'none', borderRadius: '20px', cursor: 'pointer', fontWeight: '600', fontSize: '14px' }}
               >
                 Clear filters
@@ -350,7 +397,11 @@ function FoodCard({ listing }) {
 
         <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>
           {listing.quantity} serving{listing.quantity !== 1 ? 's' : ''}
-          {listing.distanceKm != null && <span style={{ marginLeft: '6px' }}>· {listing.distanceKm} km away</span>}
+          {listing.distanceKm != null && (
+            <span style={{ marginLeft: '6px', color: listing.distanceKm <= 1 ? '#22c55e' : listing.distanceKm <= 3 ? '#f59e0b' : '#94a3b8', fontWeight: listing.distanceKm <= 1 ? '600' : '400' }}>
+              · 📍 {listing.distanceKm} km
+            </span>
+          )}
         </p>
       </div>
     </div>
