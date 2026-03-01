@@ -24,7 +24,7 @@ router.get('/mine', verifyToken, async (req, res) => {
       orderBy: { reservedAt: 'desc' },
       include: {
         listing: {
-          include: { provider: { select: { name: true, email: true } } },
+          include: { provider: { select: { name: true, email: true, contactNumber: true } } },
         },
       },
     });
@@ -51,7 +51,7 @@ router.get('/pending', verifyToken, async (req, res) => {
       },
       orderBy: { reservedAt: 'asc' },
       include: {
-        receiver: { select: { name: true, email: true } },
+        receiver: { select: { name: true, email: true, contactNumber: true } },
         listing:  true,
       },
     });
