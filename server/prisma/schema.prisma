@@ -21,6 +21,7 @@ model User {
   messagesSent  Message[]  
   ratingsGiven    Rating[]       @relation("RatingsGiven")    
   ratingsReceived Rating[]       @relation("RatingsReceived")     
+  noShowCount  Int  @default(0)  
 }
 
 model FoodListing {
