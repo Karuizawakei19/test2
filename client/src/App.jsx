@@ -5,7 +5,11 @@ import Browse             from './pages/Browse';
 import FoodDetail         from './pages/FoodDetail';
 import PostFood           from './pages/PostFood';
 import ProviderDashboard  from './pages/ProviderDashboard';
-import ReceiverDashboard  from './pages/ReceiverDashboard';  // ← new
+import ReceiverDashboard  from './pages/ReceiverDashboard';  
+import NotificationBell from './components/NotificationBell';
+import ChatPage from './pages/ChatPage';
+import MapPage from './pages/MapPage';
+
 
 const NO_NAV_PAGES = ['/', '/register'];
 
@@ -43,7 +47,13 @@ function NavBar() {
           <a href="/browse"    style={{ color: 'white' }}>Browse</a>
         </>
       )}
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '16px' }}>
+  <NotificationBell />
+    {/* logout button can move here too later */}
+    </div>
     </nav>
+
+    
   );
 }
 
@@ -58,7 +68,9 @@ function App() {
         <Route path="/listing/:id" element={<FoodDetail />} />
         <Route path="/post"        element={<PostFood />} />
         <Route path="/dashboard"   element={<ProviderDashboard />} />
-        <Route path="/receiver"    element={<ReceiverDashboard />} />  {/* ← new */}
+        <Route path="/receiver"    element={<ReceiverDashboard />} />
+        <Route path="/chat/:reservationId" element={<ChatPage />} /> 
+        <Route path="/map" element={<MapPage />} />
       </Routes>
     </BrowserRouter>
   );

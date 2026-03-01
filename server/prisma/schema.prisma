@@ -1,72 +1,104 @@
-
-
-// generate JavaScript to talk to the database
 generator client {
   provider = "prisma-client-js"
 }
 
-// using PostgreSQL
-// The URL comes from .env
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-// USER TABLE
-// Everyone who creates an account — both providers and receivers
 model User {
-  id          String @id @default(uuid())  // unique ID auto-generated for each user
-  email       String @unique               // no two accounts with same email
+  id          String @id @default(uuid())
+  email       String @unique
   name        String
-  role        String                       // "provider" or "receiver"
-  firebaseUid String @unique               // the ID Firebase gives each user on register
+  role        String
+  firebaseUid String @unique
 
-  // One user can have many listings and many reservations
-  listings     FoodListing[]
-  reservations Reservation[]
+  listings      FoodListing[]
+  reservations  Reservation[]
+  notifications Notification[]   
+  messagesSent  Message[]        
 }
 
-// FOOD LISTING TABLE
-// Every food item a provider posts
 model FoodListing {
-  id            String   @id @default(uuid())
-  foodName      String
-  quantity      Int
-  originalPrice Float                           // price set by provider 
-  address       String                          // plain text e.g. "Guadalupe, Cebu"
-  latitude      Float                           // for distance calculation
-  longitude     Float                           // for distance calculation
-  expiresAt     DateTime                        // when food expires 
-  status        String   @default("available")  // "available", "reserved", "picked_up"
-  createdAt     DateTime @default(now())        // when the listing was posted
-  allowFree     Boolean  @default(true)         // can price drop to ₱0?
-  minimumPrice  Float    @default(0)            // floor price when allowFree = false
-  storageCondition  String   @default("room_temp")  // "room_temp", "refrigerated", "frozen"
-  pickupWindowStart DateTime?                        // e.g. today at 3:00 PM
-  pickupWindowEnd   DateTime?                        // e.g. today at 5:00 PM
-  foodCategory  String  @default("other")
-  // Values: "prepared_meal", "baked_goods", "fresh_produce", "packaged", "other"
+  id                String    @id @default(uuid())
+  foodName          String
+  quantity          Int
+  originalPrice     Float
+  address           String
+  latitude          Float
+  longitude         Float
+  expiresAt         DateTime
+  status            String    @default("available")
+  createdAt         DateTime  @default(now())
+  allowFree         Boolean   @default(true)
+  minimumPrice      Float     @default(0)
+  storageCondition  String    @default("room_temp")
+  pickupWindowStart DateTime?
+  pickupWindowEnd   DateTime?
+  foodCategory      String    @default("other")
+  imageUrl          String?
 
-  imageUrl      String?
-  
-  // Which provider posted this listing
   providerId   String
   provider     User          @relation(fields: [providerId], references: [id])
   reservations Reservation[]
 }
 
-// RESERVATION TABLE
-// Created when a receiver reserves a food listing
 model Reservation {
-  id         String   @id @default(uuid())
-  status     String   @default("pending")  // "pending" or "confirmed"
-  reservedAt DateTime @default(now())
+  id           String    @id @default(uuid())
+  reservedAt   DateTime  @default(now())
+  status       String    @default("pending")
+  // "pending" | "accepted" | "declined" | "confirmed" | "cancelled"
 
-  // Which receiver made this reservation
+  receiverNote  String?
+  providerNote  String?
+
+  acceptedAt    DateTime?
+  declinedAt    DateTime?
+  confirmedAt   DateTime?
+  cancelledAt   DateTime?
+
   receiverId String
   receiver   User        @relation(fields: [receiverId], references: [id])
 
-  // Which listing was reserved
-  listingId  String      @unique           // one reservation per listing at a time
+  listingId  String      @unique
   listing    FoodListing @relation(fields: [listingId], references: [id])
+
+  messages   Message[]   
+}
+
+// ─────────────────────────────────────────
+// NOTIFICATION TABLE
+// In-app bell notifications for both roles
+// ─────────────────────────────────────────
+model Notification {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  read      Boolean  @default(false)
+
+  // What kind of notification
+  // "new_reservation" | "reservation_accepted" | "reservation_declined"
+  // "new_message" | "pickup_confirmed" | "reservation_cancelled"
+  type      String
+
+  
+  message   String
+
+  // Optional: link to navigate to when clicked
+  link      String?
+
+  userId    String
+  user      User   @relation(fields: [userId], references: [id])
+}
+
+model Message {
+  id             String      @id @default(uuid())
+  createdAt      DateTime    @default(now())
+  text           String
+
+  senderId       String
+  sender         User        @relation(fields: [senderId], references: [id])
+
+  reservationId  String
+  reservation    Reservation @relation(fields: [reservationId], references: [id])
 }
