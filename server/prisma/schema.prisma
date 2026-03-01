@@ -44,7 +44,11 @@ model FoodListing {
   storageCondition  String   @default("room_temp")  // "room_temp", "refrigerated", "frozen"
   pickupWindowStart DateTime?                        // e.g. today at 3:00 PM
   pickupWindowEnd   DateTime?                        // e.g. today at 5:00 PM
+  foodCategory  String  @default("other")
+  // Values: "prepared_meal", "baked_goods", "fresh_produce", "packaged", "other"
 
+  imageUrl      String?
+  
   // Which provider posted this listing
   providerId   String
   provider     User          @relation(fields: [providerId], references: [id])

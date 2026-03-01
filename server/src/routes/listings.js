@@ -150,7 +150,8 @@ router.post('/', verifyToken, async (req, res) => {
   const {
     foodName, quantity, originalPrice,
     expiresAt, address, latitude, longitude,
-    allowFree, minimumPrice, storageCondition, pickupWindowStart, pickupWindowEnd          
+    allowFree, minimumPrice, storageCondition, pickupWindowStart, pickupWindowEnd,
+    foodCategory, imageUrl     
   } = req.body;
 
 
@@ -185,6 +186,19 @@ router.post('/', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'Pickup window must end before the food expires.' });
     }
   }
+
+  const resolvedCategory = foodCategory || 'other';
+
+  if (resolvedCategory === 'prepared_meal') {
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+
+    if (expiry > endOfToday) {
+      return res.status(400).json({
+        error: 'Prepared meals can only be listed for same-day pickup. Set the expiry to before midnight today.'
+      });
+    }
+  }
   
   const resolvedAllowFree = allowFree === true || allowFree === 'true';
   const resolvedMinimumPrice = parseFloat(minimumPrice) || 0;
@@ -215,6 +229,8 @@ router.post('/', verifyToken, async (req, res) => {
         longitude: parseFloat(longitude),
         allowFree: resolvedAllowFree,
         minimumPrice: resolvedAllowFree ? 0 : resolvedMinimumPrice,
+        foodCategory: resolvedCategory,
+        imageUrl:      imageUrl || null,
         providerId: provider.id,
         storageCondition: storageCondition || 'room_temp',
         pickupWindowStart: pickupWindowStart ? new Date(pickupWindowStart) : null,
