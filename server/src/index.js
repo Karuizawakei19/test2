@@ -35,6 +35,9 @@ app.use('/reservations', reservationsRoutes);
 app.use('/notifications', require('./routes/notifications'));  
 app.use('/messages',      require('./routes/messages'));   
 
+app.use('/ratings',   require('./routes/ratings'));
+app.use('/providers', require('./routes/providers'));
+
 // Start the server on the port from .env (3001)
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
