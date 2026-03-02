@@ -190,4 +190,116 @@ router.patch('/:id/cancel', verifyToken, async (req, res) => {
   }
 });
 
+// ─────────────────────────────────────────
+// PATCH /reservations/:id/provider-confirm  (provider)
+// ─────────────────────────────────────────
+router.patch('/:id/provider-confirm', verifyToken, async (req, res) => {
+  try {
+    const provider = await prisma.user.findUnique({ where: { firebaseUid: req.user.uid } });
+    if (!provider)                    return res.status(404).json({ error: 'User not found.' });
+    if (provider.role !== 'provider') return res.status(403).json({ error: 'Only providers can confirm pickup.' });
+
+    const reservation = await prisma.reservation.findUnique({
+      where:   { id: req.params.id },
+      include: { listing: true, receiver: true },
+    });
+    if (!reservation)                                    return res.status(404).json({ error: 'Reservation not found.' });
+    if (reservation.listing.providerId !== provider.id)  return res.status(403).json({ error: 'This is not your reservation.' });
+    if (reservation.status !== 'accepted')               return res.status(400).json({ error: 'Reservation is not in accepted state.' });
+    if (reservation.providerConfirmed)                   return res.status(400).json({ error: 'You already confirmed this pickup.' });
+
+    const bothConfirmed = reservation.receiverConfirmed; // receiver already confirmed?
+
+    await prisma.reservation.update({
+      where: { id: reservation.id },
+      data: {
+        providerConfirmed:    true,
+        providerConfirmedAt:  new Date(),
+        ...(bothConfirmed && {
+          status:       'confirmed',
+          confirmedAt:  new Date(),
+        }),
+      },
+    });
+
+    if (bothConfirmed) {
+      await prisma.foodListing.update({
+        where: { id: reservation.listingId },
+        data:  { status: 'picked_up' },
+      });
+      await notify(
+        reservation.receiverId,
+        'pickup_confirmed',
+        `🎉 Pickup confirmed! "${reservation.listing.foodName}" has been rescued.`,
+        '/receiver'
+      );
+    }
+
+    res.json({
+      message: bothConfirmed
+        ? 'Pickup fully confirmed! Food has been rescued. 🎉'
+        : 'Your confirmation recorded. Waiting for receiver to confirm.',
+    });
+  } catch (err) {
+    console.error('provider-confirm error:', err);
+    res.status(500).json({ error: 'Failed to confirm pickup.' });
+  }
+});
+
+// ─────────────────────────────────────────
+// PATCH /reservations/:id/receiver-confirm  (receiver)
+// ─────────────────────────────────────────
+router.patch('/:id/receiver-confirm', verifyToken, async (req, res) => {
+  try {
+    const receiver = await prisma.user.findUnique({ where: { firebaseUid: req.user.uid } });
+    if (!receiver)                    return res.status(404).json({ error: 'User not found.' });
+    if (receiver.role !== 'receiver') return res.status(403).json({ error: 'Only receivers can confirm receipt.' });
+
+    const reservation = await prisma.reservation.findUnique({
+      where:   { id: req.params.id },
+      include: { listing: { include: { provider: true } } },
+    });
+    if (!reservation)                            return res.status(404).json({ error: 'Reservation not found.' });
+    if (reservation.receiverId !== receiver.id)  return res.status(403).json({ error: 'This is not your reservation.' });
+    if (reservation.status !== 'accepted')       return res.status(400).json({ error: 'Reservation is not in accepted state.' });
+    if (reservation.receiverConfirmed)           return res.status(400).json({ error: 'You already confirmed receipt.' });
+
+    const bothConfirmed = reservation.providerConfirmed; // provider already confirmed?
+
+    await prisma.reservation.update({
+      where: { id: reservation.id },
+      data: {
+        receiverConfirmed:    true,
+        receiverConfirmedAt:  new Date(),
+        ...(bothConfirmed && {
+          status:       'confirmed',
+          confirmedAt:  new Date(),
+        }),
+      },
+    });
+
+    if (bothConfirmed) {
+      await prisma.foodListing.update({
+        where: { id: reservation.listingId },
+        data:  { status: 'picked_up' },
+      });
+      await notify(
+        reservation.listing.providerId,
+        'pickup_confirmed',
+        `🎉 ${receiver.name} confirmed receipt of "${reservation.listing.foodName}". Pickup complete!`,
+        '/dashboard'
+      );
+    }
+
+    res.json({
+      message: bothConfirmed
+        ? 'Pickup fully confirmed! Food has been rescued. 🎉'
+        : 'Your confirmation recorded. Waiting for provider to confirm handoff.',
+    });
+  } catch (err) {
+    console.error('receiver-confirm error:', err);
+    res.status(500).json({ error: 'Failed to confirm receipt.' });
+  }
+});
+
 module.exports = router;

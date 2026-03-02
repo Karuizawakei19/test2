@@ -5,6 +5,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api';
 import DisclaimerModal from '../components/DisclaimerModal';
 
+
 const categoryLabel = {
   prepared_meal: 'Prepared Meal', baked_goods: 'Baked Goods',
   fresh_produce:  'Fresh Produce', packaged:    'Packaged',   other: 'Food',

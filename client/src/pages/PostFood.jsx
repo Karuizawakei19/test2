@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import { supabase } from '../supabase';
+import { showToast } from '../components/Toast';  
 
 function PostFood() {
   const [foodName,       setFoodName]       = useState('');

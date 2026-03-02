@@ -163,12 +163,7 @@ export default function ReceiverProfile() {
           <StatCard emoji="🚫" value={stats.totalDeclined}   label="Declined"      color="#94a3b8" />
           <StatCard emoji="⭐" value={stats.ratingsGiven}    label="Reviews Given" color="#f59e0b" />
           {/* ── No-Show stat card (NEW) ── */}
-          <StatCard
-            emoji={receiver.noShowCount === 0 ? '✅' : receiver.noShowCount >= 3 ? '🚫' : '⚠️'}
-            value={receiver.noShowCount}
-            label="No-Shows"
-            color={receiver.noShowCount === 0 ? '#22c55e' : receiver.noShowCount >= 3 ? '#ef4444' : '#f59e0b'}
-          />
+          
         </div>
 
         {/* ── No-Show warning banner (NEW) — only shown if noShowCount >= 2 ── */}

@@ -33,7 +33,7 @@ function Browse() {
   const [filterPrice,  setFilterPrice] = useState('all');
   const [filterStore,  setFilterStore] = useState('all');
   const [filterDist,   setFilterDist]  = useState('all'); // ← NEW: 'all'|'1'|'3'|'5'
-  const [sortBy,       setSortBy]      = useState('distance');
+  const [sortBy,       setSortBy]      = useState('expiry');
   const [showFilters,  setShowFilters] = useState(false);
 
   const navigate = useNavigate();
@@ -93,11 +93,21 @@ function Browse() {
       result = result.filter(l => l.distanceKm != null && l.distanceKm <= maxKm);
     }
 
+     result = result.filter(l => new Date(l.expiresAt) > new Date());
+
     // Sort
-    if (sortBy === 'expiry')     result.sort((a, b) => new Date(a.expiresAt) - new Date(b.expiresAt));
+    if (sortBy === 'expiry')     result.sort((a, b) => {
+      const timeDiff = new Date(a.expiresAt) - new Date(b.expiresAt);
+      if (timeDiff !== 0) return timeDiff;
+      return (a.distanceKm ?? 999) - (b.distanceKm ?? 999); // tie-break by distance
+    });
     if (sortBy === 'price_asc')  result.sort((a, b) => a.currentPrice - b.currentPrice);
     if (sortBy === 'price_desc') result.sort((a, b) => b.currentPrice - a.currentPrice);
-    if (sortBy === 'distance')   result.sort((a, b) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999));
+    if (sortBy === 'distance')   result.sort((a, b) => {
+      const distDiff = (a.distanceKm ?? 999) - (b.distanceKm ?? 999);
+      if (distDiff !== 0) return distDiff;
+      return new Date(a.expiresAt) - new Date(b.expiresAt); // tie-break by expiry
+    });
     if (sortBy === 'rating')     result.sort((a, b) => (b.provider?.avgRating ?? 0) - (a.provider?.avgRating ?? 0));
 
     return result;
@@ -108,7 +118,7 @@ function Browse() {
     filterPrice !== 'all',
     filterStore !== 'all',
     filterDist !== 'all',   // ← NEW
-    sortBy !== 'distance',
+    sortBy !== 'expiry',
   ].filter(Boolean).length;
 
   if (loading) return (
@@ -254,8 +264,9 @@ function Browse() {
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                 {[['all', 'Any'], ['1', '≤ 1 km'], ['3', '≤ 3 km'], ['5', '≤ 5 km']].map(([val, lbl]) => (
                   <button
+                  
                     key={val}
-                    onClick={() => setFilterDist(val)}
+                    onClick={() => { setFilterCat('all'); setFilterPrice('all'); setFilterStore('all'); setFilterDist('all'); setSortBy('expiry'); }}
                     disabled={!hasLocation && val !== 'all'}
                     style={{
                       padding: '5px 10px', borderRadius: '16px', fontSize: '12px', fontWeight: '500',
@@ -312,7 +323,7 @@ function Browse() {
             </p>
             {listings.length > 0 && (
               <button
-                onClick={() => { setSearch(''); setFilterCat('all'); setFilterPrice('all'); setFilterStore('all'); setFilterDist('all'); }}
+                onClick={() => { setSearch(''); setFilterCat('all'); setFilterPrice('all'); setFilterStore('all'); setFilterDist('all'); setSortBy('expiry'); }}
                 style={{ padding: '8px 20px', background: '#22c55e', color: 'white', border: 'none', borderRadius: '20px', cursor: 'pointer', fontWeight: '600', fontSize: '14px' }}
               >
                 Clear filters
@@ -396,12 +407,19 @@ function FoodCard({ listing }) {
         </p>
 
         <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>
-          {listing.quantity} serving{listing.quantity !== 1 ? 's' : ''}
-          {listing.distanceKm != null && (
-            <span style={{ marginLeft: '6px', color: listing.distanceKm <= 1 ? '#22c55e' : listing.distanceKm <= 3 ? '#f59e0b' : '#94a3b8', fontWeight: listing.distanceKm <= 1 ? '600' : '400' }}>
-              · 📍 {listing.distanceKm} km
+          {listing.distanceKm != null && (() => {
+          const isNear   = listing.distanceKm < 1;
+          const display  = isNear
+            ? `${Math.round(listing.distanceKm * 1000)}m`
+            : `${listing.distanceKm} km`;
+          const color    = listing.distanceKm <= 1 ? '#22c55e' : listing.distanceKm <= 3 ? '#f59e0b' : '#94a3b8';
+          const bold     = listing.distanceKm <= 1 ? '600' : '400';
+          return (
+            <span style={{ marginLeft: '6px', color, fontWeight: bold }}>
+              · 📍 {display}
             </span>
-          )}
+          );
+        })()}
         </p>
       </div>
     </div>

@@ -87,17 +87,17 @@ function ProviderDashboard() {
     }
   }
 
-  async function handleConfirmPickup(listingId) {
-    try {
-      await api.patch(`/listings/${listingId}/confirm`, {}, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      await fetchAll();
-      showToast('Pickup confirmed! Food has been rescued.', 'success', 4000);
-    } catch (err) {
-      showToast(err.response?.data?.error || 'Failed to confirm.', 'error');
-    }
+async function handleConfirmPickup(reservationId) {
+  try {
+    await api.patch(`/reservations/${reservationId}/provider-confirm`, {}, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    await fetchAll();
+    showToast('Pickup confirmed! Food has been rescued. 🎉', 'success', 4000);
+  } catch (err) {
+    showToast(err.response?.data?.error || 'Failed to confirm.', 'error');
   }
+}
 
   if (loading) return <div style={{ padding: '40px', textAlign: 'center' }}><p>Loading dashboard...</p></div>;
   if (error)   return <div style={{ padding: '40px' }}><p style={{ color: 'red' }}>{error}</p></div>;
@@ -366,7 +366,7 @@ function ProviderDashboard() {
 
                 {/* Confirm pickup */}
                 <button
-                  onClick={() => handleConfirmPickup(r.listingId)}
+                  onClick={() => handleConfirmPickup(r.id)}   // ← was r.listingId
                   style={{ width: '100%', padding: '11px', background: '#f59e0b', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px' }}
                 >
                   📦 Confirm Food Was Picked Up
