@@ -1,20 +1,40 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { showToast, showConfirm } from '../components/Toast';
+import { showToast } from '../components/Toast';
 import api from '../api';
+import '../styles/dashboard.css';
+import {
+  LayoutDashboard, PlusCircle, Bell, Clock, CheckCircle2,
+  Package, User, Phone, MessageCircle, LogOut, ChevronRight,
+  Inbox, UtensilsCrossed,
+} from 'lucide-react';
 
 // ── Status badge ──
+const BADGE_CLASS = {
+  available: 'db-badge db-badge-available',
+  reserved:  'db-badge db-badge-reserved',
+  accepted:  'db-badge db-badge-accepted',
+  picked_up: 'db-badge db-badge-picked_up',
+  confirmed: 'db-badge db-badge-confirmed',
+};
+const BADGE_ICON = {
+  available: <CheckCircle2 size={11} />,  
+  reserved:  <Clock size={11} />,  
+  accepted:  <CheckCircle2 size={11} />,  
+  picked_up: <Package size={11} />, 
+};
+const BADGE_LABEL = {
+  available: 'Available',  
+  reserved:  'Pending Acceptance',  
+  accepted:  'Awaiting Pickup',  
+  picked_up: 'Picked Up',
+};
+
 function StatusBadge({ status }) {
-  const map = {
-    available: { bg: '#dcfce7', color: '#166534', label: '🟢 Available' },
-    reserved:  { bg: '#fef9c3', color: '#854d0e', label: '⏳ Pending Acceptance' },
-    accepted:  { bg: '#dbeafe', color: '#1e40af', label: '✅ Accepted — Awaiting Pickup' },
-    picked_up: { bg: '#f1f5f9', color: '#475569', label: '📦 Picked Up' },
-  };
-  const s = map[status] || { bg: '#f1f5f9', color: '#475569', label: status };
   return (
-    <span style={{ padding: '3px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', background: s.bg, color: s.color }}>
-      {s.label}
+    <span className={BADGE_CLASS[status] || 'db-badge'}>
+      {BADGE_ICON[status]}
+      {BADGE_LABEL[status] || status}
     </span>
   );
 }
@@ -24,18 +44,17 @@ function getTimeLabel(expiresAt) {
   if (msLeft <= 0) return 'Expired';
   const h = Math.floor(msLeft / 3600000);
   const m = Math.floor((msLeft % 3600000) / 60000);
-  if (h === 0) return `${m}m left`;
-  if (h < 3)   return `${h}h ${m}m left`;
-  return         `${h}h ${m}m left`;
+  return h === 0 ? `${m}m left` : `${h}h ${m}m left`;
 }
 
-function ProviderDashboard() {
+export default function ProviderDashboard() {
   const [listings,     setListings]     = useState([]);
   const [reservations, setReservations] = useState([]);
   const [loading,      setLoading]      = useState(true);
   const [error,        setError]        = useState('');
   const [declineId,    setDeclineId]    = useState(null);
   const [declineNote,  setDeclineNote]  = useState('');
+  const [activeConn,   setActiveConn]   = useState(null); // the accepted reservation shown on right
 
   const navigate = useNavigate();
   const name  = localStorage.getItem('name');
@@ -48,12 +67,16 @@ function ProviderDashboard() {
 
   async function fetchAll() {
     try {
-      const [listingsRes, reservationsRes] = await Promise.all([
+      const [lRes, rRes] = await Promise.all([
         api.get('/listings/mine',        { headers: { Authorization: `Bearer ${token}` } }),
         api.get('/reservations/pending', { headers: { Authorization: `Bearer ${token}` } }),
       ]);
-      setListings(listingsRes.data.listings);
-      setReservations(reservationsRes.data.reservations);
+      setListings(lRes.data.listings);
+      const all = rRes.data.reservations;
+      setReservations(all);
+      // auto-select first accepted connection
+      const firstAccepted = all.find(r => r.status === 'accepted');
+      if (firstAccepted) setActiveConn(firstAccepted);
     } catch {
       setError('Could not load dashboard data.');
     } finally {
@@ -87,340 +110,305 @@ function ProviderDashboard() {
     }
   }
 
-async function handleConfirmPickup(reservationId) {
-  try {
-    await api.patch(`/reservations/${reservationId}/provider-confirm`, {}, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    await fetchAll();
-    showToast('Pickup confirmed! Food has been rescued. 🎉', 'success', 4000);
-  } catch (err) {
-    showToast(err.response?.data?.error || 'Failed to confirm.', 'error');
+  async function handleConfirmPickup(reservationId) {
+    try {
+      await api.patch(`/reservations/${reservationId}/provider-confirm`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      await fetchAll();
+      showToast('Pickup confirmed! Food has been rescued.', 'success', 4000);
+    } catch (err) {
+      showToast(err.response?.data?.error || 'Failed to confirm.', 'error');
+    }
   }
-}
 
-  if (loading) return <div style={{ padding: '40px', textAlign: 'center' }}><p>Loading dashboard...</p></div>;
-  if (error)   return <div style={{ padding: '40px' }}><p style={{ color: 'red' }}>{error}</p></div>;
+  if (loading) return (
+    <div className="db-page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <p style={{ color: '#a08050' }}>Loading dashboard...</p>
+    </div>
+  );
+  if (error) return (
+    <div className="db-page">
+      <p style={{ color: '#ef4444', background: '#fff0f0', padding: '12px', borderRadius: '8px' }}>{error}</p>
+    </div>
+  );
 
   const pendingRes  = reservations.filter(r => r.status === 'pending');
   const acceptedRes = reservations.filter(r => r.status === 'accepted');
 
   return (
-    <div style={{ padding: '24px', background: '#f8fafc', minHeight: '100vh' }}>
-      <div style={{ maxWidth: '700px', margin: '0 auto' }}>
+    <div className="db-page">
 
-        {/* ── Header ── */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: '22px', color: '#1e293b' }}>🍱 {name || 'Provider'}'s Dashboard</h2>
-            <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '14px' }}>Manage your listings and reservations</p>
-          </div>
-          <button
-            onClick={() => { localStorage.clear(); navigate('/'); }}
-            style={{ padding: '8px 18px', background: 'white', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', color: '#64748b' }}
-          >
-            Logout
-          </button>
+      {/* ���─ Page Header ── */}
+      <div className="db-page-header">
+        <div>
+          <h2><LayoutDashboard size={20} /> {name || 'Provider'}&apos;s Dashboard</h2>
+          <p>Manage your listings and reservations</p>
         </div>
-
-        {/* ── Post button ── */}
-        <button
-          onClick={() => navigate('/post')}
-          style={{ width: '100%', padding: '14px', background: '#22c55e', color: 'white', border: 'none', borderRadius: '10px', cursor: 'pointer', fontSize: '16px', fontWeight: 'bold', marginBottom: '28px' }}
-        >
-          + Post New Food Listing
+        <button className="db-logout-btn" onClick={() => { localStorage.clear(); navigate('/'); }}>
+          <LogOut size={14} /> Logout
         </button>
+      </div>
 
-        {/* ══════════════════════════════════════
-            SECTION 1 — PENDING: accept or decline
-        ══════════════════════════════════════ */}
-        {pendingRes.length > 0 && (
-          <section style={{ marginBottom: '32px' }}>
-            <h3 style={{ fontSize: '16px', color: '#1e293b', marginBottom: '4px' }}>
-              🔔 Pending Reservations ({pendingRes.length})
-            </h3>
-            <p style={{ fontSize: '13px', color: '#64748b', marginTop: 0, marginBottom: '16px' }}>
-              These receivers are waiting for your response.
-            </p>
+      <div className="db-layout">
 
-            {pendingRes.map(r => (
-              <div key={r.id} style={{ background: 'white', border: '2px solid #fbbf24', borderRadius: '12px', padding: '16px', marginBottom: '14px' }}>
+        {/* ══════════════════════════
+            LEFT COLUMN
+        ══════════════════════════ */}
+        <div className="db-left">
 
-                {/* Food name + time reserved */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
-                  <div>
-                    <h4 style={{ margin: 0, fontSize: '16px', color: '#1e293b' }}>{r.listing.foodName}</h4>
-                    <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#94a3b8' }}>
-                      Reserved {new Date(r.reservedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  </div>
-                  <StatusBadge status="reserved" />
-                </div>
+          {/* Post button */}
+          <button className="db-cta-btn" onClick={() => navigate('/post')}>  
+            <PlusCircle size={18} /> Post New Food Listing
+          </button>
 
-                {/* ── Receiver info card ── */}
-                <div style={{ background: '#fffbeb', borderRadius: '8px', padding: '12px', marginBottom: '12px', border: '1px solid #fde68a' }}>
-
-                  {/* Name row — name is a clickable link */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                    <p style={{ margin: 0, fontSize: '14px', fontWeight: '600', color: '#1e293b' }}>
-                      👤{' '}
-                      <span
-                        onClick={() => navigate(`/receiver/${r.receiver.id}`)}
-                        style={{
-                          color: '#3b82f6',
-                          cursor: 'pointer',
-                          textDecoration: 'underline',
-                          textUnderlineOffset: '2px',
-                        }}
-                      >
-                        {r.receiver.name}
-                      </span>
-                    </p>
-
-                    {/* View Profile button */}
-                    <button
-                      onClick={() => navigate(`/receiver/${r.receiver.id}`)}
-                      style={{
-                        padding: '4px 12px',
-                        fontSize: '12px',
-                        fontWeight: '600',
-                        background: 'white',
-                        color: '#3b82f6',
-                        border: '1px solid #93c5fd',
-                        borderRadius: '20px',
-                        cursor: 'pointer',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      View Profile →
-                    </button>
-                  </div>
-
-                  <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>
-                    {r.receiver.email}
-                  </p>
-
-                  {r.receiver.contactNumber && (
-                    <a
-                      href={`tel:${r.receiver.contactNumber}`}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '4px', fontSize: '13px', color: '#22c55e', fontWeight: '600', textDecoration: 'none' }}
-                    >
-                      📞 {r.receiver.contactNumber}
-                    </a>
-                  )}
-
-                  {r.receiverNote && (
-                    <p style={{ margin: '8px 0 0', fontSize: '13px', color: '#475569', fontStyle: 'italic', borderTop: '1px solid #fde68a', paddingTop: '8px' }}>
-                      💬 "{r.receiverNote}"
-                    </p>
-                  )}
-                </div>
-
-                {/* Decline reason input */}
-                {declineId === r.id && (
-                  <div style={{ marginBottom: '12px' }}>
-                    <label style={{ fontSize: '13px', color: '#374151', fontWeight: '500' }}>
-                      Reason for declining <span style={{ color: '#94a3b8', fontWeight: 'normal' }}>(optional)</span>
-                    </label>
-                    <textarea
-                      value={declineNote}
-                      onChange={e => setDeclineNote(e.target.value)}
-                      placeholder="e.g. Sorry, food was already given away."
-                      rows={2}
-                      maxLength={200}
-                      style={{ width: '100%', marginTop: '6px', padding: '8px', borderRadius: '6px', border: '1px solid #fca5a5', fontSize: '13px', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }}
-                    />
-                  </div>
-                )}
-
-                {/* Accept / Decline buttons */}
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  {declineId === r.id ? (
-                    <>
-                      <button
-                        onClick={() => handleDecline(r.id)}
-                        style={{ flex: 1, padding: '10px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '14px' }}
-                      >
-                        Confirm Decline
-                      </button>
-                      <button
-                        onClick={() => { setDeclineId(null); setDeclineNote(''); }}
-                        style={{ padding: '10px 16px', background: 'white', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', color: '#64748b' }}
-                      >
-                        Cancel
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        onClick={() => handleAccept(r.id)}
-                        style={{ flex: 1, padding: '10px', background: '#22c55e', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '14px' }}
-                      >
-                        ✅ Accept
-                      </button>
-                      <button
-                        onClick={() => setDeclineId(r.id)}
-                        style={{ flex: 1, padding: '10px', background: 'white', color: '#ef4444', border: '1px solid #fca5a5', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '14px' }}
-                      >
-                        ❌ Decline
-                      </button>
-                    </>
-                  )}
-                </div>
-
+          {/* ── Pending reservations ── */}
+          {pendingRes.length > 0 && (
+            <div className="db-panel">
+              <div className="db-panel-header">
+                <Bell size={15} color="#c8862a" />
+                <h3>Pending Reservations</h3>
+                <span className="db-count">{pendingRes.length}</span>
               </div>
-            ))}
-          </section>
-        )}
 
-        {/* ══════════════════════════════════════
-            SECTION 2 — ACCEPTED: waiting for pickup
-        ══════════════════════════════════════ */}
-        {acceptedRes.length > 0 && (
-          <section style={{ marginBottom: '32px' }}>
-            <h3 style={{ fontSize: '16px', color: '#1e293b', marginBottom: '12px' }}>
-              🚶 Accepted — Waiting for Pickup ({acceptedRes.length})
-            </h3>
+              {pendingRes.map(r => (
+                <div key={r.id} className="db-card" style={{ borderColor: '#fbbf24' }}>
 
-            {acceptedRes.map(r => (
-              <div key={r.id} style={{ background: 'white', border: '2px solid #3b82f6', borderRadius: '12px', padding: '16px', marginBottom: '14px' }}>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
-                  <div>
-                    <h4 style={{ margin: 0, fontSize: '16px', color: '#1e293b' }}>{r.listing.foodName}</h4>
-                    <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#94a3b8' }}>
-                      Accepted {new Date(r.acceptedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  </div>
-                  <StatusBadge status="accepted" />
-                </div>
-
-                {/* ── Receiver info card ── */}
-                <div style={{ background: '#eff6ff', borderRadius: '8px', padding: '12px', marginBottom: '14px', border: '1px solid #bfdbfe' }}>
-
-                  {/* Name row — name is a clickable link */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                    <p style={{ margin: 0, fontSize: '14px', fontWeight: '600', color: '#1e293b' }}>
-                      👤{' '}
-                      <span
-                        onClick={() => navigate(`/receiver/${r.receiver.id}`)}
-                        style={{
-                          color: '#3b82f6',
-                          cursor: 'pointer',
-                          textDecoration: 'underline',
-                          textUnderlineOffset: '2px',
-                        }}
-                      >
-                        {r.receiver.name}
-                      </span>
-                      {' '}
-                      <span style={{ fontWeight: '400', color: '#64748b', fontSize: '13px' }}>is on the way</span>
-                    </p>
-
-                    {/* View Profile button */}
-                    <button
-                      onClick={() => navigate(`/receiver/${r.receiver.id}`)}
-                      style={{
-                        padding: '4px 12px',
-                        fontSize: '12px',
-                        fontWeight: '600',
-                        background: 'white',
-                        color: '#3b82f6',
-                        border: '1px solid #93c5fd',
-                        borderRadius: '20px',
-                        cursor: 'pointer',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      View Profile →
-                    </button>
+                  <div className="db-card-statusbar reserved">
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <Clock size={13} /> Pending Acceptance
+                    </span>
+                    <StatusBadge status="reserved" />
                   </div>
 
-                  <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>
-                    {r.receiver.email}
-                  </p>
+                  <div className="db-card-body">
+                    <div className="db-thumb">
+                      {r.listing.imageUrl
+                        ? <img src={r.listing.imageUrl} alt={r.listing.foodName} />
+                        : <UtensilsCrossed size={28} color="#c8862a" />}
+                    </div>
 
-                  {r.receiver.contactNumber && (
-                    <a
-                      href={`tel:${r.receiver.contactNumber}`}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '4px', fontSize: '13px', color: '#22c55e', fontWeight: '600', textDecoration: 'none' }}
-                    >
-                      📞 {r.receiver.contactNumber}
-                    </a>
-                  )}
+                    <div className="db-card-info">
+                      <h4>{r.listing.foodName}</h4>
+                      <p className="db-card-meta">
+                        <Clock size={11} />
+                        Reserved {new Date(r.reservedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </p>
 
-                  {r.receiverNote && (
-                    <p style={{ margin: '8px 0 0', fontSize: '13px', color: '#475569', fontStyle: 'italic', borderTop: '1px solid #bfdbfe', paddingTop: '8px' }}>
-                      💬 "{r.receiverNote}"
-                    </p>
-                  )}
+                      {/* Receiver info */}
+                      <div className="db-info-box amber" style={{ marginTop: 10 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+                          <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#3d2b0e', display: 'flex', alignItems: 'center', gap: 5 }}>
+                            <User size={13} />
+                            <span
+                              onClick={() => navigate(`/receiver/${r.receiver.id}`)}
+                              style={{ color: '#5a7fc4', cursor: 'pointer', textDecoration: 'underline' }}
+                            >
+                              {r.receiver.name}
+                            </span>
+                          </p>
+                          <button className="db-btn db-btn-profile" onClick={() => navigate(`/receiver/${r.receiver.id}`)}>
+                            View Profile <ChevronRight size={11} />
+                          </button>
+                        </div>
+                        <p style={{ margin: '4px 0 0', fontSize: 12, color: '#a08050' }}>{r.receiver.email}</p>
+                        {r.receiver.contactNumber && (
+                          <a href={`tel:${r.receiver.contactNumber}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 4, fontSize: 12, color: '#c8862a', fontWeight: 600, textDecoration: 'none' }}>
+                            <Phone size={12} /> {r.receiver.contactNumber}
+                          </a>
+                        )}
+                        {r.receiverNote && (
+                          <p style={{ margin: '8px 0 0', fontSize: 12, color: '#7c5c2e', fontStyle: 'italic', borderTop: '1px solid #fde68a', paddingTop: 7 }}>
+                            &ldquo;{r.receiverNote}&rdquo;
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Decline textarea */}
+                      {declineId === r.id && (
+                        <div style={{ marginBottom: 10 }}>
+                          <label style={{ fontSize: 12, color: '#7c5c2e', fontWeight: 600 }}>
+                            Reason for declining <span style={{ fontWeight: 400, color: '#c8b08a' }}>(optional)</span>
+                          </label>
+                          <textarea
+                            className="db-decline-textarea"
+                            value={declineNote}
+                            onChange={e => setDeclineNote(e.target.value)}
+                            placeholder="e.g. Sorry, food was already given away."
+                            rows={2}
+                            maxLength={200}
+                          />
+                        </div>
+                      )}
+
+                      {/* Accept / Decline */}
+                      <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                        {declineId === r.id ? (
+                          <>  
+                            <button className="db-btn db-btn-decline db-btn-full" onClick={() => handleDecline(r.id)}>
+                              Confirm Decline
+                            </button>
+                            <button className="db-btn db-btn-cancel" onClick={() => { setDeclineId(null); setDeclineNote(''); }}>
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <>  
+                            <button className="db-btn db-btn-accept" onClick={() => handleAccept(r.id)}>
+                              <CheckCircle2 size={14} /> Accept
+                            </button>
+                            <button className="db-btn db-btn-decline" onClick={() => setDeclineId(r.id)}>
+                              Decline
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-
-                {/* Open Chat button */}
-                <button
-                  onClick={() => navigate(`/chat/${r.id}`)}
-                  style={{ width: '100%', padding: '11px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '14px', marginBottom: '10px' }}
-                >
-                  💬 Open Chat with {r.receiver.name}
-                </button>
-
-                {/* Confirm pickup */}
-                <button
-                  onClick={() => handleConfirmPickup(r.id)}   // ← was r.listingId
-                  style={{ width: '100%', padding: '11px', background: '#f59e0b', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px' }}
-                >
-                  📦 Confirm Food Was Picked Up
-                </button>
-
-              </div>
-            ))}
-          </section>
-        )}
-
-        {/* ══════════════════════════════════════
-            SECTION 3 — ALL LISTINGS
-        ══════════════════════════════════════ */}
-        <section>
-          <h3 style={{ fontSize: '16px', color: '#1e293b', marginBottom: '12px' }}>
-            📋 Your Listings ({listings.length})
-          </h3>
-
-          {listings.length === 0 && (
-            <div style={{ padding: '40px', textAlign: 'center', background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', color: '#94a3b8' }}>
-              <p style={{ fontSize: '16px', fontWeight: '500', margin: 0 }}>No listings yet.</p>
-              <p style={{ fontSize: '14px', marginTop: '6px' }}>Click "+ Post New Food Listing" to get started.</p>
+              ))}
             </div>
           )}
 
-          {listings.map(listing => (
-            <div key={listing.id} style={{
-              background: listing.status === 'picked_up' ? '#f8fafc' : 'white',
-              border: '1px solid #e2e8f0',
-              borderRadius: '12px',
-              padding: '16px',
-              marginBottom: '12px',
-              opacity: listing.status === 'picked_up' ? 0.65 : 1,
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px' }}>
-                <h4 style={{ margin: 0, fontSize: '15px', color: '#1e293b' }}>{listing.foodName}</h4>
-                <StatusBadge status={listing.status} />
-              </div>
-              <p style={{ margin: '6px 0 0', fontSize: '13px', color: '#64748b' }}>
-                {getTimeLabel(listing.expiresAt)}
-                {' · '}Qty: {listing.quantity}
-                {' · '}₱{listing.currentPrice}
-                {listing.currentPrice < listing.originalPrice && (
-                  <s style={{ color: '#aaa', marginLeft: '6px' }}>₱{listing.originalPrice}</s>
-                )}
-                {' · '}{listing.address}
-              </p>
+          {/* ── Listings ── */}
+          <div className="db-panel">
+            <div className="db-panel-header">
+              <Inbox size={15} color="#c8862a" />
+              <h3>Your Listings</h3>
+              <span className="db-count">{listings.length}</span>
             </div>
-          ))}
-        </section>
+
+            {listings.length === 0 && (
+              <div className="db-empty">
+                <UtensilsCrossed size={32} />
+                <p style={{ fontWeight: 600 }}>No listings yet.</p>
+                <p style={{ fontSize: 13 }}>Post a new food listing to get started.</p>
+              </div>
+            )}
+
+            {listings.map(listing => (
+              <div
+                key={listing.id}
+                className={'db-card' + (listing.status === 'picked_up' ? ' dimmed' : '')}
+              >
+                <div className="db-card-body">
+                  <div className="db-thumb">  
+                    {listing.imageUrl
+                      ? <img src={listing.imageUrl} alt={listing.foodName} />
+                      : <UtensilsCrossed size={24} color="#c8862a" />}
+                  </div>
+                  <div className="db-card-info">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 6 }}>
+                      <h4>{listing.foodName}</h4>
+                      <StatusBadge status={listing.status} />
+                    </div>
+                    <p className="db-card-meta">
+                      <Clock size={11} /> {getTimeLabel(listing.expiresAt)}
+                      &nbsp;·&nbsp;Qty: {listing.quantity}
+                      &nbsp;·&nbsp;₱{listing.currentPrice}
+                      {listing.currentPrice < listing.originalPrice && (
+                        <s style={{ color: '#c8b08a', marginLeft: 4 }}>₱{listing.originalPrice}</s>
+                      )}
+                    </p>
+                    <p className="db-card-meta" style={{ marginTop: 2 }}>{listing.address}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ══════════════════════════
+            RIGHT COLUMN — Active Connection Panel
+        ══════════════════════════ */}
+        <div className="db-right">  
+          {acceptedRes.length === 0 ? (
+            <div className="db-hero-empty">
+              <Package size={56} />
+              <p style={{ fontWeight: 700, fontSize: 17, color: '#7c5c2e' }}>No active connections yet</p>
+              <p>Once you accept a reservation, the receiver&apos;s details and chat will appear here.</p>
+            </div>
+          ) : (
+            <>  
+              {/* Tab selector when multiple accepted */}
+              {acceptedRes.length > 1 && (
+                <div className="db-tabs" style={{ marginBottom: 20 }}>
+                  {acceptedRes.map(r => (
+                    <button
+                      key={r.id}
+                      className={'db-tab' + (activeConn?.id === r.id ? ' active' : '')}
+                      onClick={() => setActiveConn(r)}
+                    >
+                      {r.listing.foodName}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {(() => {
+                const r = activeConn || acceptedRes[0];
+                return (
+                  <div className="db-connection-panel">
+
+                    {/* Header */}
+                    <div className="db-connection-header">
+                      <div>
+                        <p className="db-connection-title">{r.listing.foodName}</p>
+                        <p className="db-connection-sub">
+                          Accepted {new Date(r.acceptedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                      <StatusBadge status="accepted" />
+                    </div>
+
+                    {/* Receiver card */}
+                    <div className="db-info-box blue">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+                        <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#3d2b0e', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <User size={15} />
+                          <span
+                            onClick={() => navigate(`/receiver/${r.receiver.id}`)}
+                            style={{ color: '#5a7fc4', cursor: 'pointer', textDecoration: 'underline' }}
+                          >
+                            {r.receiver.name}
+                          </span>
+                          <span style={{ fontWeight: 400, color: '#a08050', fontSize: 13 }}>is on the way</span>
+                        </p>
+                        <button className="db-btn db-btn-profile" onClick={() => navigate(`/receiver/${r.receiver.id}`)}>
+                          View Profile <ChevronRight size={11} />
+                        </button>
+                      </div>
+                      <p style={{ margin: 0, fontSize: 13, color: '#7c5c2e' }}>{r.receiver.email}</p>
+                      {r.receiver.contactNumber && (
+                        <a href={`tel:${r.receiver.contactNumber}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 6, fontSize: 13, color: '#c8862a', fontWeight: 600, textDecoration: 'none' }}>
+                          <Phone size={13} /> {r.receiver.contactNumber}
+                        </a>
+                      )}
+                      {r.receiverNote && (
+                        <p style={{ margin: '10px 0 0', fontSize: 13, color: '#7c5c2e', fontStyle: 'italic', borderTop: '1px solid #bfdbfe', paddingTop: 8 }}>
+                          &ldquo;{r.receiverNote}&rdquo;
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Chat button */}
+                    <button className="db-btn db-btn-chat db-btn-full" onClick={() => navigate(`/chat/${r.id}`)}>
+                      <MessageCircle size={16} /> Open Chat with {r.receiver.name}
+                    </button>
+
+                    {/* Confirm pickup */}
+                    <button className="db-btn db-btn-confirm db-btn-full" onClick={() => handleConfirmPickup(r.id)}>
+                      <Package size={16} /> Confirm Food Was Picked Up
+                    </button>
+
+                  </div>
+                );
+              })()}
+            </>
+          )}
+        </div>
 
       </div>
     </div>
   );
 }
-
-export default ProviderDashboard;
