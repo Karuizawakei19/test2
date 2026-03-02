@@ -3,12 +3,46 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import {
+  ArrowLeft, Phone, UtensilsCrossed, CheckCircle2,
+  ChevronRight, Calendar, TrendingUp, AlertTriangle,
+  XCircle, Star, BarChart3,
+} from 'lucide-react';
 import api from '../api';
 
-const categoryEmoji = {
-  prepared_meal: '🍛', baked_goods: '🍞',
-  fresh_produce: '🥦', packaged: '📦', other: '🍽️',
+const B = {
+  pageBg:  '#f5f0e8',
+  heroBg:  'linear-gradient(135deg, #5a3e1b 0%, #7c5c2e 60%, #a07040 100%)',
+  card:    '#fffdf8',
+  border:  '#e2d9c8',
+  brown:   '#7c5c2e',
+  amber:   '#c8862a',
+  muted:   '#9c8a6e',
+  text:    '#3d2b0e',
+  subtext: '#7a6040',
 };
+
+const categoryEmoji = {
+  prepared_meal: 'Prepared Meal', baked_goods: 'Baked Good',
+  fresh_produce: 'Fresh Produce', packaged: 'Packaged', other: 'Other',
+};
+
+function StatCard({ icon: Icon, value, label, color }) {
+  return (
+    <div style={{
+      background: B.card, border: `1px solid ${B.border}`,
+      borderRadius: '12px', padding: '14px 10px',
+      textAlign: 'center',
+      boxShadow: '0 1px 4px rgba(139,109,56,0.06)',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '4px' }}>
+        <Icon size={18} strokeWidth={1.8} color={color} />
+      </div>
+      <div style={{ fontSize: '20px', fontWeight: '800', color, lineHeight: 1 }}>{value}</div>
+      <div style={{ fontSize: '11px', color: B.subtext, marginTop: '4px', fontWeight: '500' }}>{label}</div>
+    </div>
+  );
+}
 
 export default function ReceiverProfile() {
   const { receiverId } = useParams();
@@ -29,27 +63,24 @@ export default function ReceiverProfile() {
       .finally(() => setLoading(false));
   }, [receiverId]);
 
-  // ── Loading ──
   if (loading) return (
-    <div style={{ minHeight: '100vh', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ textAlign: 'center', color: '#94a3b8' }}>
-        <div style={{ fontSize: '36px', marginBottom: '10px' }}>👤</div>
+    <div style={{ minHeight: '100vh', background: B.pageBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ textAlign: 'center', color: B.muted }}>
+        <UtensilsCrossed size={36} color={B.amber} strokeWidth={1.5} style={{ marginBottom: '10px' }} />
         <p style={{ margin: 0, fontSize: '14px' }}>Loading profile...</p>
       </div>
     </div>
   );
 
-  // ── Error ──
   if (error) return (
-    <div style={{ minHeight: '100vh', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+    <div style={{ minHeight: '100vh', background: B.pageBg, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
       <div style={{ textAlign: 'center', maxWidth: '360px' }}>
-        <div style={{ fontSize: '40px', marginBottom: '12px' }}>⚠️</div>
-        <p style={{ color: '#ef4444', background: '#fff0f0', padding: '12px 16px', borderRadius: '10px', fontSize: '14px' }}>{error}</p>
+        <p style={{ color: '#c0392b', background: '#fff0ea', padding: '12px 16px', borderRadius: '10px', fontSize: '14px' }}>{error}</p>
         <button
           onClick={() => navigate(-1)}
-          style={{ marginTop: '16px', padding: '10px 24px', background: '#22c55e', color: 'white', border: 'none', borderRadius: '20px', cursor: 'pointer', fontWeight: '600' }}
+          style={{ marginTop: '16px', padding: '10px 24px', background: B.amber, color: 'white', border: 'none', borderRadius: '20px', cursor: 'pointer', fontWeight: '600' }}
         >
-          ← Go Back
+          Go Back
         </button>
       </div>
     </div>
@@ -57,51 +88,47 @@ export default function ReceiverProfile() {
 
   const { receiver, stats, recentPickups } = data;
 
-  // Reliability colour
   const reliabilityColor =
-    stats.reliabilityPct === null ? '#94a3b8' :
-    stats.reliabilityPct >= 80    ? '#22c55e' :
-    stats.reliabilityPct >= 50    ? '#f59e0b' : '#ef4444';
+    stats.reliabilityPct === null ? B.muted :
+    stats.reliabilityPct >= 80    ? '#5a8a4a' :
+    stats.reliabilityPct >= 50    ? B.amber : '#c0392b';
 
   const reliabilityLabel =
     stats.reliabilityPct === null ? 'No data yet' :
     stats.reliabilityPct >= 80    ? 'Reliable' :
     stats.reliabilityPct >= 50    ? 'Average' : 'Low';
 
-  return (
-    <div style={{ background: '#f8fafc', minHeight: '100vh' }}>
+  const ReliabilityIcon =
+    stats.reliabilityPct === null ? BarChart3 :
+    stats.reliabilityPct >= 80    ? TrendingUp :
+    stats.reliabilityPct >= 50    ? TrendingUp : AlertTriangle;
 
-      {/* ════════════════════════════════
-          HERO BANNER — blue theme
-          (distinct from provider's green)
-      ════════════════════════════════ */}
-      <div style={{
-        background: 'linear-gradient(135deg, #1e3a5f 0%, #1e40af 60%, #2563eb 100%)',
-        padding: '20px 24px 28px',
-      }}>
-        {/* Back button */}
+  return (
+    <div style={{ background: B.pageBg, minHeight: '100vh' }}>
+
+      <div style={{ background: B.heroBg, padding: '20px 24px 28px' }}>
         <button
           onClick={() => navigate(-1)}
           style={{
-            background: 'rgba(255,255,255,0.15)', border: 'none',
+            background: 'rgba(255,255,255,0.18)', border: 'none',
             color: 'white', borderRadius: '8px',
             padding: '7px 14px', cursor: 'pointer',
             fontSize: '13px', fontWeight: '500',
-            marginBottom: '24px', display: 'inline-block',
+            marginBottom: '24px', display: 'inline-flex',
+            alignItems: 'center', gap: '6px',
           }}
         >
-          ← Back
+          <ArrowLeft size={14} /> Back
         </button>
 
-        {/* Avatar + name */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <div style={{
             width: '72px', height: '72px', borderRadius: '50%',
-            background: 'linear-gradient(135deg, #60a5fa, #3b82f6)',
-            border: '3px solid rgba(255,255,255,0.4)',
+            background: 'rgba(255,255,255,0.22)',
+            border: '3px solid rgba(255,255,255,0.45)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: '28px', fontWeight: '800', color: 'white',
-            flexShrink: 0, boxShadow: '0 4px 14px rgba(0,0,0,0.25)',
+            flexShrink: 0, boxShadow: '0 4px 14px rgba(0,0,0,0.2)',
           }}>
             {receiver.name?.[0]?.toUpperCase() || '?'}
           </div>
@@ -111,101 +138,90 @@ export default function ReceiverProfile() {
               {receiver.name}
             </h1>
 
-            {/* Reliability badge */}
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', marginTop: '6px', background: 'rgba(255,255,255,0.15)', borderRadius: '20px', padding: '3px 10px' }}>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: '5px',
+              marginTop: '6px', background: 'rgba(255,255,255,0.15)',
+              borderRadius: '20px', padding: '3px 10px',
+            }}>
               <span style={{ fontSize: '12px', color: 'white', opacity: 0.85 }}>Reliability:</span>
               <span style={{
                 fontSize: '13px', fontWeight: '700',
                 color: stats.reliabilityPct === null ? 'rgba(255,255,255,0.5)' :
-                       stats.reliabilityPct >= 80 ? '#86efac' :
+                       stats.reliabilityPct >= 80 ? '#d4edbe' :
                        stats.reliabilityPct >= 50 ? '#fde68a' : '#fca5a5',
               }}>
-                {stats.reliabilityPct !== null ? `${stats.reliabilityPct}%` : '—'} {reliabilityLabel}
+                {stats.reliabilityPct !== null ? `${stats.reliabilityPct}%` : ''} {reliabilityLabel}
               </span>
             </div>
 
-            {/* Member since */}
             {receiver.memberSince && (
-              <p style={{ margin: '5px 0 0', fontSize: '12px', color: 'rgba(255,255,255,0.6)' }}>
-                🗓️ Member since {new Date(receiver.memberSince).toLocaleDateString([], { month: 'long', year: 'numeric' })}
+              <p style={{ margin: '5px 0 0', fontSize: '12px', color: 'rgba(255,255,255,0.65)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Calendar size={11} /> Member since {new Date(receiver.memberSince).toLocaleDateString([], { month: 'long', year: 'numeric' })}
               </p>
             )}
 
-            {/* Contact */}
             {receiver.contactNumber && (
               <a
                 href={`tel:${receiver.contactNumber}`}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', marginTop: '5px', fontSize: '13px', color: '#93c5fd', fontWeight: '600', textDecoration: 'none' }}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '5px',
+                  marginTop: '5px', fontSize: '13px',
+                  color: 'rgba(255,255,255,0.85)', fontWeight: '600',
+                  textDecoration: 'none',
+                }}
               >
-                📞 {receiver.contactNumber}
+                <Phone size={13} /> {receiver.contactNumber}
               </a>
             )}
           </div>
         </div>
       </div>
 
-      {/* ════════════════════════════════
-          CONTENT
-      ════════════════════════════════ */}
       <div style={{ maxWidth: '640px', margin: '0 auto', padding: '20px 16px 40px' }}>
 
-        {/* ── Stats grid ── */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '24px' }}>
-          <StatCard emoji="🍱" value={stats.totalRescued}      label="Meals Rescued"  color="#22c55e" />
-          <StatCard emoji="📋" value={stats.totalReservations} label="Total Reserved" color="#3b82f6" />
-          <StatCard
-            emoji={stats.reliabilityPct === null ? '📊' : stats.reliabilityPct >= 80 ? '🏆' : stats.reliabilityPct >= 50 ? '📈' : '⚠️'}
-            value={stats.reliabilityPct !== null ? `${stats.reliabilityPct}%` : '—'}
-            label="Reliability"
-            color={reliabilityColor}
-          />
-          <StatCard emoji="❌" value={stats.totalCancelled}  label="Cancelled"     color="#ef4444" />
-          <StatCard emoji="🚫" value={stats.totalDeclined}   label="Declined"      color="#94a3b8" />
-          <StatCard emoji="⭐" value={stats.ratingsGiven}    label="Reviews Given" color="#f59e0b" />
-          {/* ── No-Show stat card (NEW) ── */}
-          
+          <StatCard icon={CheckCircle2}    value={stats.totalRescued}      label="Meals Rescued"  color="#5a8a4a" />
+          <StatCard icon={UtensilsCrossed} value={stats.totalReservations} label="Total Reserved" color={B.brown} />
+          <StatCard icon={ReliabilityIcon} value={stats.reliabilityPct !== null ? `${stats.reliabilityPct}%` : ''} label="Reliability" color={reliabilityColor} />
+          <StatCard icon={XCircle}         value={stats.totalCancelled}    label="Cancelled"      color="#c0392b" />
+          <StatCard icon={AlertTriangle}   value={stats.totalDeclined}     label="Declined"       color={B.muted} />
+          <StatCard icon={Star}            value={stats.ratingsGiven}      label="Reviews Given"  color={B.amber} />
         </div>
 
-        {/* ── No-Show warning banner (NEW) — only shown if noShowCount >= 2 ── */}
         {receiver.noShowCount >= 2 && (
           <div style={{
-            background: receiver.noShowCount >= 3 ? '#fee2e2' : '#fffbeb',
-            border: `1px solid ${receiver.noShowCount >= 3 ? '#fca5a5' : '#fcd34d'}`,
+            background: receiver.noShowCount >= 3 ? '#fee8e0' : '#fdf3e0',
+            border: `1px solid ${receiver.noShowCount >= 3 ? '#f4a48a' : B.border}`,
             borderRadius: '10px', padding: '12px 14px', marginBottom: '20px',
             display: 'flex', gap: '10px', alignItems: 'flex-start',
           }}>
-            <span style={{ fontSize: '20px', flexShrink: 0 }}>
-              {receiver.noShowCount >= 3 ? '🚫' : '⚠️'}
-            </span>
+            <AlertTriangle size={20} color={receiver.noShowCount >= 3 ? '#c0392b' : B.amber} strokeWidth={2} style={{ flexShrink: 0, marginTop: '1px' }} />
             <div>
-              <p style={{ margin: 0, fontSize: '13px', fontWeight: '700', color: receiver.noShowCount >= 3 ? '#991b1b' : '#92400e' }}>
+              <p style={{ margin: 0, fontSize: '13px', fontWeight: '700', color: receiver.noShowCount >= 3 ? '#c0392b' : '#92400e' }}>
                 {receiver.noShowCount >= 3 ? 'High No-Show Risk' : 'No-Show Warning'}
               </p>
-              <p style={{ margin: '3px 0 0', fontSize: '12px', color: receiver.noShowCount >= 3 ? '#b91c1c' : '#a16207', lineHeight: '1.5' }}>
+              <p style={{ margin: '3px 0 0', fontSize: '12px', color: receiver.noShowCount >= 3 ? '#b91c1c' : B.subtext, lineHeight: '1.5' }}>
                 This receiver has {receiver.noShowCount} recorded no-show{receiver.noShowCount !== 1 ? 's' : ''}.
-                {receiver.noShowCount >= 3 ? ' Consider declining their reservation.' : ' Use your judgement when accepting their reservation.'}
+                {receiver.noShowCount >= 3 ? ' Consider declining their reservation.' : ' Use your judgement when accepting.'}
               </p>
             </div>
           </div>
         )}
 
-        {/* ── Reliability explanation ── */}
         <div style={{
-          background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0',
+          background: B.card, borderRadius: '12px', border: `1px solid ${B.border}`,
           padding: '14px 16px', marginBottom: '24px',
           display: 'flex', alignItems: 'flex-start', gap: '10px',
         }}>
-          <span style={{ fontSize: '20px', flexShrink: 0 }}>
-            {stats.reliabilityPct === null ? '📊' : stats.reliabilityPct >= 80 ? '🏆' : stats.reliabilityPct >= 50 ? '📈' : '⚠️'}
-          </span>
+          <ReliabilityIcon size={20} color={reliabilityColor} strokeWidth={1.8} style={{ flexShrink: 0, marginTop: '2px' }} />
           <div>
-            <p style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>
+            <p style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: B.text }}>
               {stats.reliabilityPct === null
                 ? 'No pickup data yet'
                 : `${stats.reliabilityPct}% pickup reliability`
               }
             </p>
-            <p style={{ margin: '3px 0 0', fontSize: '12px', color: '#64748b', lineHeight: '1.5' }}>
+            <p style={{ margin: '3px 0 0', fontSize: '12px', color: B.subtext, lineHeight: '1.5' }}>
               {stats.reliabilityPct === null
                 ? 'This receiver has not yet completed any reservations.'
                 : `${receiver.name} has completed ${stats.totalRescued} out of ${stats.totalRescued + stats.totalCancelled} reservations (excl. provider-declined).`
@@ -214,70 +230,71 @@ export default function ReceiverProfile() {
           </div>
         </div>
 
-        {/* ── Recent Pickups ── */}
         <section>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-            <span style={{ fontSize: '18px' }}>✅</span>
-            <h2 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: '#1e293b' }}>
+            <CheckCircle2 size={18} color="#5a8a4a" strokeWidth={2} />
+            <h2 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: B.text }}>
               Recent Rescues ({recentPickups.length})
             </h2>
           </div>
 
           {recentPickups.length === 0 ? (
             <div style={{
-              background: 'white', borderRadius: '12px',
-              border: '1px solid #e2e8f0', padding: '32px',
-              textAlign: 'center', color: '#94a3b8',
+              background: B.card, borderRadius: '12px',
+              border: `1px solid ${B.border}`, padding: '32px',
+              textAlign: 'center', color: B.muted,
             }}>
-              <div style={{ fontSize: '32px', marginBottom: '8px' }}>🫙</div>
+              <UtensilsCrossed size={32} color={B.border} strokeWidth={1.5} style={{ marginBottom: '8px' }} />
               <p style={{ margin: 0, fontSize: '14px' }}>No rescues yet.</p>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {recentPickups.map((r, i) => (
                 <div key={i} style={{
-                  background: 'white', borderRadius: '12px',
-                  border: '1px solid #e2e8f0', padding: '12px 14px',
+                  background: B.card, borderRadius: '12px',
+                  border: `1px solid ${B.border}`, padding: '12px 14px',
                   display: 'flex', gap: '12px', alignItems: 'center',
                 }}>
-                  {/* Thumbnail */}
                   <div style={{
                     width: '48px', height: '48px', borderRadius: '8px',
                     flexShrink: 0, overflow: 'hidden',
-                    background: 'linear-gradient(135deg,#dcfce7,#bbf7d0)',
-                    display: 'flex', alignItems: 'center',
-                    justifyContent: 'center', fontSize: '22px',
+                    background: 'linear-gradient(135deg,#ede4d3,#d6c9b0)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
                     {r.listing.imageUrl
                       ? <img src={r.listing.imageUrl} alt={r.listing.foodName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      : (categoryEmoji[r.listing.foodCategory] || '🍽️')
+                      : <UtensilsCrossed size={20} color={B.muted} strokeWidth={1.5} />
                     }
                   </div>
 
-                  {/* Details */}
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ margin: 0, fontWeight: '600', fontSize: '14px', color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <p style={{ margin: 0, fontWeight: '600', fontSize: '14px', color: B.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {r.listing.foodName}
                     </p>
-                    <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#94a3b8' }}>
+                    <p style={{ margin: '2px 0 0', fontSize: '12px', color: B.muted }}>
                       from{' '}
                       <span
                         onClick={() => navigate(`/provider/${r.listing.provider?.id}`)}
-                        style={{ color: '#22c55e', fontWeight: '600', cursor: 'pointer', textDecoration: 'underline' }}
+                        style={{ color: B.amber, fontWeight: '600', cursor: 'pointer', textDecoration: 'underline' }}
                       >
                         {r.listing.provider?.name}
                       </span>
-                      {' '}· {r.listing.address}
+                      {' '}b {r.listing.address}
                     </p>
                   </div>
 
-                  {/* Date */}
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <p style={{ margin: 0, fontSize: '11px', color: '#94a3b8' }}>
+                    <p style={{ margin: 0, fontSize: '11px', color: B.muted }}>
                       {new Date(r.reservedAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}
                     </p>
-                    <span style={{ fontSize: '11px', background: '#dcfce7', color: '#166534', borderRadius: '20px', padding: '2px 8px', fontWeight: '600' }}>
-                      ✅ Rescued
+                    <span style={{
+                      fontSize: '11px',
+                      background: '#e8f5e2',
+                      color: '#5a8a4a',
+                      borderRadius: '20px', padding: '2px 8px', fontWeight: '600',
+                      display: 'inline-flex', alignItems: 'center', gap: '3px',
+                    }}>
+                      <CheckCircle2 size={10} /> Rescued
                     </span>
                   </div>
                 </div>
@@ -287,22 +304,5 @@ export default function ReceiverProfile() {
         </section>
 
       </div>
-    </div>
-  );
-}
-
-// ── Stat card ──
-function StatCard({ emoji, value, label, color }) {
-  return (
-    <div style={{
-      background: 'white', border: '1px solid #e2e8f0',
-      borderRadius: '12px', padding: '14px 10px',
-      textAlign: 'center',
-      boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-    }}>
-      <div style={{ fontSize: '20px', marginBottom: '4px' }}>{emoji}</div>
-      <div style={{ fontSize: '20px', fontWeight: '800', color, lineHeight: 1 }}>{value}</div>
-      <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px', fontWeight: '500' }}>{label}</div>
-    </div>
-  );
+    </div>;
 }
